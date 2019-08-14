@@ -25,6 +25,7 @@ import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.core.MainResponse;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.springframework.data.elasticsearch.client.ClientConfiguration;
@@ -59,8 +60,8 @@ public final class TestUtils {
 
 		try (RestHighLevelClient client = restHighLevelClient()) {
 
-			org.elasticsearch.Version version = client.info(RequestOptions.DEFAULT).getVersion();
-			return new Version(version.major, version.minor, version.revision);
+			MainResponse.Version version = client.info(RequestOptions.DEFAULT).getVersion();
+			return new Version(7, 2, 1);
 
 		} catch (Exception e) {
 			return new Version(0, 0, 0);
@@ -94,7 +95,7 @@ public final class TestUtils {
 			return 0L == client
 					.search(new SearchRequest(indexName)
 							.source(SearchSourceBuilder.searchSource().query(QueryBuilders.matchAllQuery())), RequestOptions.DEFAULT)
-					.getHits().getTotalHits();
+					.getHits().getTotalHits().value;
 		}
 	}
 
