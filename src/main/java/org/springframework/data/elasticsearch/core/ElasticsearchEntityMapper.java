@@ -637,7 +637,8 @@ public class ElasticsearchEntityMapper implements
 	}
 
 	private boolean isSimpleType(Object value) {
-		return isSimpleType(value.getClass());
+		return value == null // NPE Fix: readMapValue() Map<,>; entry.value==null (DTL patch)
+				|| isSimpleType(value.getClass());
 	}
 
 	private boolean isSimpleType(Class<?> type) {
