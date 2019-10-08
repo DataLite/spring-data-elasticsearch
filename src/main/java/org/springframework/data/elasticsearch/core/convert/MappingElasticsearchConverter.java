@@ -15,12 +15,9 @@
  */
 package org.springframework.data.elasticsearch.core.convert;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
 import lombok.RequiredArgsConstructor;
-
-import java.io.IOException;
-import java.util.*;
-import java.util.Map.Entry;
-
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationContext;
@@ -51,8 +48,9 @@ import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ObjectUtils;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectReader;
+import java.io.IOException;
+import java.util.*;
+import java.util.Map.Entry;
 
 /**
  * Elasticsearch specific {@link org.springframework.data.convert.EntityConverter} implementation based on domain type
@@ -642,7 +640,8 @@ public class MappingElasticsearchConverter
 	}
 
 	private boolean isSimpleType(Object value) {
-		return isSimpleType(value.getClass());
+		return value == null // NPE Fix: readMapValue() Map<,>; entry.value==null (DTL patch)
+				|| isSimpleType(value.getClass());
 	}
 
 	private boolean isSimpleType(Class<?> type) {

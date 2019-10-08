@@ -5,7 +5,7 @@
 
 	<groupId>org.springframework.data</groupId>
 	<artifactId>spring-data-elasticsearch</artifactId>
-	<version>4.0.0.BUILD-SNAPSHOT</version>
+	<version>4.0.0.BUILD-SNAPSHOT-DATALITE</version>
 
 	<parent>
 		<groupId>org.springframework.data.build</groupId>
@@ -335,11 +335,18 @@
 		</repository>
 	</repositories>
 
-	<pluginRepositories>
-		<pluginRepository>
-			<id>spring-plugins-release</id>
-			<url>https://repo.spring.io/plugins-release</url>
-		</pluginRepository>
-	</pluginRepositories>
+	<!--	!!!POZOR, vypnout profil artifactory!!!-->
+	<distributionManagement>
+		<repository>
+			<id>DataLite</id>
+			<name>DTLArtifactory-releases</name>
+			<url>http://zealot:8081/artifactory/libs-releases-local</url>
+		</repository>
+		<snapshotRepository>
+			<id>DataLite</id>
+			<name>DTLArtifactory-snapshots</name>
+			<url>http://zealot:8081/artifactory/libs-snapshots-local</url>
+		</snapshotRepository>
+	</distributionManagement>
 
 </project>
