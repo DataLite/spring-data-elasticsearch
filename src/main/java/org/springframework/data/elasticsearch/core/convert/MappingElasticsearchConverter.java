@@ -626,7 +626,7 @@ public class MappingElasticsearchConverter
 
 	private Collection<Object> createCollectionForValue(TypeInformation<?> collectionTypeInformation, int size) {
 
-		Class<?> collectionType = collectionTypeInformation.isSubTypeOf(Collection.class) //
+		Class<?> collectionType = isSubTypeOf(Collection.class, collectionTypeInformation) //
 				? collectionTypeInformation.getType() //
 				: List.class;
 
@@ -637,6 +637,13 @@ public class MappingElasticsearchConverter
 		return collectionTypeInformation.getType().isArray() //
 				? new ArrayList<>(size) //
 				: CollectionFactory.createCollection(collectionType, componentType.getType(), size);
+	}
+
+	/**
+	 * DTL workaround - patch / nahrada {@link TypeInformation#isSubTypeOf(Class)} - ten je az od verze spring-data-commons verze 2.2. Ale ten zase zpusobuje jine problemy.
+	 */
+	boolean isSubTypeOf(Class<?> type, TypeInformation<?> typeInformation) {
+		return !type.equals(typeInformation.getType()) && type.isAssignableFrom(typeInformation.getType());
 	}
 
 	private boolean isSimpleType(Object value) {
