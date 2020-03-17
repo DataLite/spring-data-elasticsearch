@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 the original author or authors.
+ * Copyright 2018-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package org.springframework.data.elasticsearch.client.reactive;
 
 import java.net.InetSocketAddress;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.client.reactive.ClientHttpConnector;
@@ -35,6 +36,7 @@ import org.springframework.web.reactive.function.client.WebClient;
  * @author Christoph Strobl
  * @author Mark Paluch
  * @author Huw Ayling-Miller
+ * @author Peter-Josef Meisch
  * @since 3.2
  */
 public interface WebClientProvider {
@@ -103,6 +105,7 @@ public interface WebClientProvider {
 	 * @return the pathPrefix if set.
 	 * @since 4.0
 	 */
+	@Nullable
 	String getPathPrefix();
 
 	/**
@@ -129,4 +132,14 @@ public interface WebClientProvider {
 	 * @since 4.0
 	 */
 	WebClientProvider withPathPrefix(String pathPrefix);
+
+	/**
+	 * Create a new instance of {@link WebClientProvider} calling the given {@link Function} to configure the
+	 * {@link WebClient}.
+	 * 
+	 * @param webClientConfigurer configuration function
+	 * @return new instance of {@link WebClientProvider}
+	 * @since 4.0
+	 */
+	WebClientProvider withWebClientConfigurer(Function<WebClient, WebClient> webClientConfigurer);
 }

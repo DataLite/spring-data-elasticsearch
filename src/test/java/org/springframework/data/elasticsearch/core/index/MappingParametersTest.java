@@ -4,12 +4,13 @@ import static org.assertj.core.api.Assertions.*;
 
 import java.lang.annotation.Annotation;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 import org.springframework.data.elasticsearch.annotations.InnerField;
 import org.springframework.data.elasticsearch.annotations.Score;
 import org.springframework.data.elasticsearch.core.mapping.ElasticsearchPersistentEntity;
+import org.springframework.lang.Nullable;
 
 /**
  * @author Peter-Josef Meisch
@@ -59,10 +60,10 @@ public class MappingParametersTest extends MappingContextBaseTests {
 	}
 
 	static class AnnotatedClass {
-		@Field private String field;
-		@InnerField(suffix = "test", type = FieldType.Text) private String innerField;
+		@Nullable @Field private String field;
+		@Nullable @InnerField(suffix = "test", type = FieldType.Text) private String innerField;
 		@Score private float score;
-		@Field(type = FieldType.Text, docValues = false) private String docValuesText;
-		@Field(type = FieldType.Nested, docValues = false) private String docValuesNested;
+		@Nullable @Field(type = FieldType.Text, docValues = false) private String docValuesText;
+		@Nullable @Field(type = FieldType.Nested, docValues = false) private String docValuesNested;
 	}
 }

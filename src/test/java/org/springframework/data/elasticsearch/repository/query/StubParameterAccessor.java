@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 the original author or authors.
+ * Copyright 2019-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,14 +41,16 @@ class StubParameterAccessor implements ElasticsearchParameterAccessor {
 	 * (non-Javadoc)
 	 * @see org.springframework.data.repository.query.ParameterAccessor#getPageable()
 	 */
+	@Override
 	public Pageable getPageable() {
-		return null;
+		return Pageable.unpaged();
 	}
 
 	/*
 	 * (non-Javadoc)
 	 * @see org.springframework.data.repository.query.ParameterAccessor#getBindableValue(int)
 	 */
+	@Override
 	public Object getBindableValue(int index) {
 		return values[index];
 	}
@@ -57,6 +59,7 @@ class StubParameterAccessor implements ElasticsearchParameterAccessor {
 	 * (non-Javadoc)
 	 * @see org.springframework.data.repository.query.ParameterAccessor#hasBindableNullValue()
 	 */
+	@Override
 	public boolean hasBindableNullValue() {
 		return false;
 	}
@@ -65,6 +68,7 @@ class StubParameterAccessor implements ElasticsearchParameterAccessor {
 	 * (non-Javadoc)
 	 * @see org.springframework.data.repository.query.ParameterAccessor#getSort()
 	 */
+	@Override
 	public Sort getSort() {
 		return Sort.unsorted();
 	}
@@ -73,6 +77,7 @@ class StubParameterAccessor implements ElasticsearchParameterAccessor {
 	 * (non-Javadoc)
 	 * @see org.springframework.data.repository.query.ParameterAccessor#iterator()
 	 */
+	@Override
 	public Iterator<Object> iterator() {
 		return Arrays.asList(values).iterator();
 	}
@@ -99,8 +104,8 @@ class StubParameterAccessor implements ElasticsearchParameterAccessor {
 	 * (non-Javadoc)
 	 * @see org.springframework.data.repository.query.ParameterAccessor#findDynamicProjection()
 	 */
-    @Override
-    public Class<?> findDynamicProjection() {
-        return null;
-    }
+	@Override
+	public Class<?> findDynamicProjection() {
+		return null;
+	}
 }

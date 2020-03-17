@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 the original author or authors.
+ * Copyright 2018-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,17 +23,15 @@ import java.util.Collections;
 
 import org.apache.commons.lang.ClassUtils;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.client.reactive.ReactiveElasticsearchClient;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
-import org.springframework.data.elasticsearch.core.EntityMapper;
 import org.springframework.data.elasticsearch.core.ReactiveElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.convert.ElasticsearchConverter;
-import org.springframework.data.elasticsearch.core.convert.MappingElasticsearchConverter;
 import org.springframework.data.elasticsearch.core.mapping.SimpleElasticsearchMappingContext;
 
 /**
@@ -100,13 +98,6 @@ public class ElasticsearchConfigurationSupportUnitTests {
 
 		AbstractApplicationContext context = new AnnotationConfigApplicationContext(ReactiveRestConfig.class);
 		assertThat(context.getBean(ReactiveElasticsearchTemplate.class)).isNotNull();
-	}
-
-	@Test // DATAES-530
-	public void usesConfiguredEntityMapper() {
-
-		AbstractApplicationContext context = new AnnotationConfigApplicationContext(EntityMapperConfig.class);
-		assertThat(context.getBean(EntityMapper.class)).isInstanceOf(MappingElasticsearchConverter.class);
 	}
 
 	@Configuration

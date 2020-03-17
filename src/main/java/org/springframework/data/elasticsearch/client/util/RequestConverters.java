@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 the original author or authors.
+ * Copyright 2018-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +59,7 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Requests;
 import org.elasticsearch.client.RethrottleRequest;
+import org.elasticsearch.client.core.CountRequest;
 import org.elasticsearch.client.indices.AnalyzeRequest;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.Priority;
@@ -76,6 +77,7 @@ import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.VersionType;
+import org.elasticsearch.index.mapper.MapperService;
 import org.elasticsearch.index.rankeval.RankEvalRequest;
 import org.elasticsearch.index.reindex.AbstractBulkByScrollRequest;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
@@ -102,6 +104,7 @@ import org.springframework.lang.Nullable;
  * @author Peter-Josef Meisch
  * @since 3.2
  */
+@SuppressWarnings("JavadocReference")
 public class RequestConverters {
 
 	private static final XContentType REQUEST_BODY_CONTENT_TYPE = XContentType.JSON;
@@ -181,7 +184,9 @@ public class RequestConverters {
 						metadata.field("_index", action.index());
 					}
 					if (Strings.hasLength(action.type())) {
-						metadata.field("_type", action.type());
+						if (MapperService.SINGLE_MAPPING_NAME.equals(action.type()) == false) {
+							metadata.field("_type", action.type());
+						}
 					}
 					if (Strings.hasLength(action.id())) {
 						metadata.field("_id", action.id());
@@ -199,9 +204,12 @@ public class RequestConverters {
 							metadata.field("version_type", "external");
 						} else if (versionType == VersionType.EXTERNAL_GTE) {
 							metadata.field("version_type", "external_gte");
-						} else if (versionType == VersionType.FORCE) {
-							metadata.field("version_type", "force");
 						}
+					}
+
+					if (action.ifSeqNo() != SequenceNumbers.UNASSIGNED_SEQ_NO) {
+						metadata.field("if_seq_no", action.ifSeqNo());
+						metadata.field("if_primary_term", action.ifPrimaryTerm());
 					}
 
 					if (opType == DocWriteRequest.OpType.INDEX || opType == DocWriteRequest.OpType.CREATE) {
@@ -363,7 +371,7 @@ public class RequestConverters {
 			XContentType upsertContentType = updateRequest.upsertRequest().getContentType();
 			if ((xContentType != null) && (xContentType != upsertContentType)) {
 				throw new IllegalStateException("Update request cannot have different content types for doc [" + xContentType
-						+ "]" + " and upsert [" + upsertContentType + "] documents");
+						+ ']' + " and upsert [" + upsertContentType + "] documents");
 			} else {
 				xContentType = upsertContentType;
 			}
@@ -386,6 +394,32 @@ public class RequestConverters {
 			request.setEntity(createEntity(searchRequest.source(), REQUEST_BODY_CONTENT_TYPE));
 		}
 		return request;
+	}
+
+	/**
+	 * Creates a count request.
+	 * 
+	 * @param countRequest the search defining the data to be counted
+	 * @return Elasticsearch count request
+	 * @since 4.0
+	 */
+	public static Request count(CountRequest countRequest) {
+		Request request = new Request(HttpMethod.POST.name(),
+				endpoint(countRequest.indices(), countRequest.types(), "_count"));
+
+		Params params = new Params(request);
+		addCountRequestParams(params, countRequest);
+
+		if (countRequest.source() != null) {
+			request.setEntity(createEntity(countRequest.source(), REQUEST_BODY_CONTENT_TYPE));
+		}
+		return request;
+	}
+
+	private static void addCountRequestParams(Params params, CountRequest countRequest) {
+		params.withRouting(countRequest.routing());
+		params.withPreference(countRequest.preference());
+		params.withIndicesOptions(countRequest.indicesOptions());
 	}
 
 	private static void addSearchRequestParams(Params params, SearchRequest searchRequest) {
@@ -433,7 +467,7 @@ public class RequestConverters {
 		return request;
 	}
 
-	public static Request explain(ExplainRequest explainRequest) throws IOException {
+	public static Request explain(ExplainRequest explainRequest) {
 		Request request = new Request(HttpMethod.GET.name(),
 				endpoint(explainRequest.index(), explainRequest.type(), explainRequest.id(), "_explain"));
 
@@ -455,7 +489,7 @@ public class RequestConverters {
 		return request;
 	}
 
-	public static Request rankEval(RankEvalRequest rankEvalRequest) throws IOException {
+	public static Request rankEval(RankEvalRequest rankEvalRequest) {
 		Request request = new Request(HttpMethod.GET.name(),
 				endpoint(rankEvalRequest.indices(), Strings.EMPTY_ARRAY, "_rank_eval"));
 
@@ -474,8 +508,7 @@ public class RequestConverters {
 		return prepareReindexRequest(reindexRequest, false);
 	}
 
-	private static Request prepareReindexRequest(ReindexRequest reindexRequest, boolean waitForCompletion)
-			throws IOException {
+	private static Request prepareReindexRequest(ReindexRequest reindexRequest, boolean waitForCompletion) {
 		String endpoint = new EndpointBuilder().addPathPart("_reindex").build();
 		Request request = new Request(HttpMethod.POST.name(), endpoint);
 		Params params = new Params(request).withWaitForCompletion(waitForCompletion).withRefresh(reindexRequest.isRefresh())
@@ -489,7 +522,7 @@ public class RequestConverters {
 		return request;
 	}
 
-	public static Request updateByQuery(UpdateByQueryRequest updateByQueryRequest) throws IOException {
+	public static Request updateByQuery(UpdateByQueryRequest updateByQueryRequest) {
 		String endpoint = endpoint(updateByQueryRequest.indices(), updateByQueryRequest.getDocTypes(), "_update_by_query");
 		Request request = new Request(HttpMethod.POST.name(), endpoint);
 		Params params = new Params(request).withRouting(updateByQueryRequest.getRouting())
@@ -514,7 +547,7 @@ public class RequestConverters {
 		return request;
 	}
 
-	public static Request deleteByQuery(DeleteByQueryRequest deleteByQueryRequest) throws IOException {
+	public static Request deleteByQuery(DeleteByQueryRequest deleteByQueryRequest) {
 		String endpoint = endpoint(deleteByQueryRequest.indices(), deleteByQueryRequest.getDocTypes(), "_delete_by_query");
 		Request request = new Request(HttpMethod.POST.name(), endpoint);
 		Params params = new Params(request).withRouting(deleteByQueryRequest.getRouting())
@@ -560,7 +593,7 @@ public class RequestConverters {
 		return request;
 	}
 
-	public static Request putScript(PutStoredScriptRequest putStoredScriptRequest) throws IOException {
+	public static Request putScript(PutStoredScriptRequest putStoredScriptRequest) {
 		String endpoint = new EndpointBuilder().addPathPartAsIs("_scripts").addPathPart(putStoredScriptRequest.id())
 				.build();
 		Request request = new Request(HttpMethod.POST.name(), endpoint);
@@ -574,7 +607,7 @@ public class RequestConverters {
 		return request;
 	}
 
-	public static Request analyze(AnalyzeRequest request) throws IOException {
+	public static Request analyze(AnalyzeRequest request) {
 		EndpointBuilder builder = new EndpointBuilder();
 		String index = request.index();
 		if (index != null) {
@@ -1118,7 +1151,7 @@ public class RequestConverters {
 		}
 		if (requestContentType != xContentType) {
 			throw new IllegalArgumentException("Mismatching content-type found for request with content-type ["
-					+ requestContentType + "], previous requests have content-type [" + xContentType + "]");
+					+ requestContentType + "], previous requests have content-type [" + xContentType + ']');
 		}
 		return xContentType;
 	}
@@ -1167,7 +1200,7 @@ public class RequestConverters {
 				// encode each part (e.g. index, type and id) separately before merging them into the path
 				// we prepend "/" to the path part to make this path absolute, otherwise there can be issues with
 				// paths that start with `-` or contain `:`
-				URI uri = new URI(null, null, null, -1, "/" + pathPart, null, null);
+				URI uri = new URI(null, null, null, -1, '/' + pathPart, null, null);
 				// manually encode any slash that each part may contain
 				return uri.getRawPath().substring(1).replaceAll("/", "%2F");
 			} catch (URISyntaxException e) {

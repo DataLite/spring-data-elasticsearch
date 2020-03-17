@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,7 +65,8 @@ public class ElasticsearchQueryCreator extends AbstractQueryCreator<CriteriaQuer
 		PersistentPropertyPath<ElasticsearchPersistentProperty> path = context
 				.getPersistentPropertyPath(part.getProperty());
 		return new CriteriaQuery(from(part,
-				new Criteria(path.toDotPath(ElasticsearchPersistentProperty.PropertyToFieldNameConverter.INSTANCE)), iterator));
+				new Criteria(path.toDotPath(ElasticsearchPersistentProperty.QueryPropertyToFieldNameConverter.INSTANCE)),
+				iterator));
 	}
 
 	@Override
@@ -76,7 +77,8 @@ public class ElasticsearchQueryCreator extends AbstractQueryCreator<CriteriaQuer
 		PersistentPropertyPath<ElasticsearchPersistentProperty> path = context
 				.getPersistentPropertyPath(part.getProperty());
 		return base.addCriteria(from(part,
-				new Criteria(path.toDotPath(ElasticsearchPersistentProperty.PropertyToFieldNameConverter.INSTANCE)), iterator));
+				new Criteria(path.toDotPath(ElasticsearchPersistentProperty.QueryPropertyToFieldNameConverter.INSTANCE)),
+				iterator));
 	}
 
 	@Override
@@ -138,9 +140,14 @@ public class ElasticsearchQueryCreator extends AbstractQueryCreator<CriteriaQuer
 				Object firstParameter = parameters.next();
 				Object secondParameter = null;
 				if (type == Part.Type.SIMPLE_PROPERTY) {
-					if (part.getProperty().getType() != GeoPoint.class)
-						return criteria.is(firstParameter);
-					else {
+					if (part.getProperty().getType() != GeoPoint.class) {
+						if (firstParameter != null) {
+							return criteria.is(firstParameter);
+						} else {
+							// searching for null is a must_not (exists)
+							return criteria.exists().not();
+						}
+					} else {
 						// it means it's a simple find with exact geopoint matching (e.g. findByLocation)
 						// and because Elasticsearch does not have any kind of query with just a geopoint
 						// as argument we use a "geo distance" query with a distance of one meter.

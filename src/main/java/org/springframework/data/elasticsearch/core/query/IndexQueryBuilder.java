@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2019 the original author or authors.
+ * Copyright 2014-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,22 @@
  */
 package org.springframework.data.elasticsearch.core.query;
 
+import org.springframework.lang.Nullable;
+
 /**
  * IndexQuery Builder
  *
  * @author Rizwan Idrees
  * @author Mohsin Husen
+ * @author Peter-Josef Meisch
  */
 public class IndexQueryBuilder {
 
-	private String id;
-	private Object object;
-	private Long version;
-	private String indexName;
-	private String type;
-	private String source;
-	private String parentId;
+	@Nullable private String id;
+	@Nullable private Object object;
+	@Nullable private Long version;
+	@Nullable private String source;
+	@Nullable private String parentId;
 
 	public IndexQueryBuilder withId(String id) {
 		this.id = id;
@@ -46,16 +47,6 @@ public class IndexQueryBuilder {
 		return this;
 	}
 
-	public IndexQueryBuilder withIndexName(String indexName) {
-		this.indexName = indexName;
-		return this;
-	}
-
-	public IndexQueryBuilder withType(String type) {
-		this.type = type;
-		return this;
-	}
-
 	public IndexQueryBuilder withSource(String source) {
 		this.source = source;
 		return this;
@@ -69,8 +60,6 @@ public class IndexQueryBuilder {
 	public IndexQuery build() {
 		IndexQuery indexQuery = new IndexQuery();
 		indexQuery.setId(id);
-		indexQuery.setIndexName(indexName);
-		indexQuery.setType(type);
 		indexQuery.setObject(object);
 		indexQuery.setParentId(parentId);
 		indexQuery.setSource(source);

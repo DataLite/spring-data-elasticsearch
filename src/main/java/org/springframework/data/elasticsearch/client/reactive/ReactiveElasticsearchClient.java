@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 the original author or authors.
+ * Copyright 2018-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,8 @@ import org.elasticsearch.action.admin.indices.get.GetIndexRequest;
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest;
 import org.elasticsearch.action.admin.indices.open.OpenIndexRequest;
 import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.get.GetRequest;
@@ -57,6 +59,8 @@ import org.springframework.web.reactive.function.client.WebClient;
  *
  * @author Christoph Strobl
  * @author Mark Paluch
+ * @author Peter-Josef Meisch
+ * @author Henrique Amaral
  * @since 3.2
  * @see ClientConfiguration
  * @see ReactiveRestClients
@@ -329,6 +333,47 @@ public interface ReactiveElasticsearchClient {
 	Mono<DeleteResponse> delete(HttpHeaders headers, DeleteRequest deleteRequest);
 
 	/**
+	 * Execute a {@link SearchRequest} against the {@literal count} API.
+	 *
+	 * @param consumer new {@literal null}.
+	 * @see <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/search-count.html">Count API on
+	 *      elastic.co</a>
+	 * @return the {@link Mono} emitting the count result.
+	 * @since 4.0
+	 */
+	default Mono<Long> count(Consumer<SearchRequest> consumer) {
+
+		SearchRequest searchRequest = new SearchRequest();
+		consumer.accept(searchRequest);
+		return count(searchRequest);
+	}
+
+	/**
+	 * Execute a {@link SearchRequest} against the {@literal search} API.
+	 *
+	 * @param searchRequest must not be {@literal null}.
+	 * @see <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/search-count.html">Count API on
+	 *      elastic.co</a>
+	 * @return the {@link Mono} emitting the count result.
+	 * @since 4.0
+	 */
+	default Mono<Long> count(SearchRequest searchRequest) {
+		return count(HttpHeaders.EMPTY, searchRequest);
+	}
+
+	/**
+	 * Execute a {@link SearchRequest} against the {@literal search} API.
+	 *
+	 * @param headers Use {@link HttpHeaders} to provide eg. authentication data. Must not be {@literal null}.
+	 * @param searchRequest must not be {@literal null}.
+	 * @see <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/search-count.html">Count API on
+	 *      elastic.co</a>
+	 * @return the {@link Mono} emitting the count result.
+	 * @since 4.0
+	 */
+	Mono<Long> count(HttpHeaders headers, SearchRequest searchRequest);
+
+	/**
 	 * Execute a {@link SearchRequest} against the {@literal search} API.
 	 *
 	 * @param consumer never {@literal null}.
@@ -428,6 +473,44 @@ public interface ReactiveElasticsearchClient {
 	 * @return a {@link Mono} emitting operation response.
 	 */
 	Mono<BulkByScrollResponse> deleteBy(HttpHeaders headers, DeleteByQueryRequest deleteRequest);
+
+	/**
+	 * Execute a {@link BulkRequest} against the {@literal bulk} API.
+	 *
+	 * @param consumer never {@literal null}.
+	 * @see <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html">Bulk API on
+	 *      elastic.co</a>
+	 * @return a {@link Mono} emitting the emitting operation response.
+	 */
+	default Mono<BulkResponse> bulk(Consumer<BulkRequest> consumer) {
+
+		BulkRequest request = new BulkRequest();
+		consumer.accept(request);
+		return bulk(request);
+	}
+
+	/**
+	 * Execute a {@link BulkRequest} against the {@literal bulk} API.
+	 *
+	 * @param bulkRequest must not be {@literal null}.
+	 * @see <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html">Bulk API on
+	 *      elastic.co</a>
+	 * @return a {@link Mono} emitting the emitting operation response.
+	 */
+	default Mono<BulkResponse> bulk(BulkRequest bulkRequest) {
+		return bulk(HttpHeaders.EMPTY, bulkRequest);
+	}
+
+	/**
+	 * Execute a {@link BulkRequest} against the {@literal bulk} API.
+	 *
+	 * @param headers Use {@link HttpHeaders} to provide eg. authentication data. Must not be {@literal null}.
+	 * @param bulkRequest must not be {@literal null}.
+	 * @see <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html">Bulk API on
+	 *      elastic.co</a>
+	 * @return a {@link Mono} emitting operation response.
+	 */
+	Mono<BulkResponse> bulk(HttpHeaders headers, BulkRequest bulkRequest);
 
 	/**
 	 * Compose the actual command/s to run against Elasticsearch using the underlying {@link WebClient connection}.

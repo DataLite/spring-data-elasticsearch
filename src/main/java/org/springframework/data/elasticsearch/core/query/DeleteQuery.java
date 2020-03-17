@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,21 +16,24 @@
 package org.springframework.data.elasticsearch.core.query;
 
 import org.elasticsearch.index.query.QueryBuilder;
+import org.springframework.lang.Nullable;
 
 /**
  * DeleteQuery
  *
  * @author Rizwan Idrees
  * @author Mohsin Husen
+ * @author Peter-Josef Meisch
+ * @deprecated since 4.0, use {@link Query} implementations and set {@link Query#setScrollTimeInMillis(Long)} and {@link Query#getMaxResults()}
  */
+@Deprecated
 public class DeleteQuery {
 
-	private QueryBuilder query;
-	private String index;
-	private String type;
-	private Integer pageSize;
-	private Long scrollTimeInMillis;
+	@Nullable private QueryBuilder query;
+	@Nullable private Integer pageSize;
+	@Nullable private Long scrollTimeInMillis;
 
+	@Nullable
 	public QueryBuilder getQuery() {
 		return query;
 	}
@@ -39,22 +42,7 @@ public class DeleteQuery {
 		this.query = query;
 	}
 
-	public String getIndex() {
-		return index;
-	}
-
-	public void setIndex(String index) {
-		this.index = index;
-	}
-
-	public String getType() {
-		return type;
-	}
-
-	public void setType(String type) {
-		this.type = type;
-	}
-
+	@Nullable
 	public Integer getPageSize() {
 		return pageSize;
 	}
@@ -63,6 +51,7 @@ public class DeleteQuery {
 		this.pageSize = pageSize;
 	}
 
+	@Nullable
 	public Long getScrollTimeInMillis() {
 		return scrollTimeInMillis;
 	}

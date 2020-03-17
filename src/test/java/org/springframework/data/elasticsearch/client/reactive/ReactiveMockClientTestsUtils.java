@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 the original author or authors.
+ * Copyright 2018-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,6 +60,8 @@ import org.springframework.web.util.UriBuilder;
 /**
  * @author Christoph Strobl
  * @author Huw Ayling-Miller
+ * @author Henrique Amaral
+ * @author Peter-Josef Meisch
  */
 public class ReactiveMockClientTestsUtils {
 
@@ -127,10 +129,12 @@ public class ReactiveMockClientTestsUtils {
 			this.activeDefaultHost = activeDefaultHost;
 		}
 
+		@Override
 		public Mono<InetSocketAddress> lookupActiveHost() {
 			return delegate.lookupActiveHost();
 		}
 
+		@Override
 		public Mono<InetSocketAddress> lookupActiveHost(Verification verification) {
 
 			if (StringUtils.hasText(activeDefaultHost)) {
@@ -140,14 +144,17 @@ public class ReactiveMockClientTestsUtils {
 			return delegate.lookupActiveHost(verification);
 		}
 
+		@Override
 		public Mono<WebClient> getActive() {
 			return delegate.getActive();
 		}
 
+		@Override
 		public Mono<WebClient> getActive(Verification verification) {
 			return delegate.getActive(verification);
 		}
 
+		@Override
 		public WebClient createWebClient(InetSocketAddress endpoint) {
 			return delegate.createWebClient(endpoint);
 		}
@@ -208,6 +215,7 @@ public class ReactiveMockClientTestsUtils {
 			return get(getInetSocketAddress(host));
 		}
 
+		@Override
 		public WebClient get(InetSocketAddress endpoint) {
 
 			synchronized (lock) {
@@ -273,6 +281,11 @@ public class ReactiveMockClientTestsUtils {
 		@Override
 		public WebClientProvider withPathPrefix(String pathPrefix) {
 			throw new UnsupportedOperationException();
+		}
+
+		@Override
+		public WebClientProvider withWebClientConfigurer(Function<WebClient, WebClient> webClientConfigurer) {
+			throw new UnsupportedOperationException("not implemented");
 		}
 
 		public Send when(String host) {
@@ -369,6 +382,12 @@ public class ReactiveMockClientTestsUtils {
 						.receive(response -> {
 							Mockito.when(response.statusCode()).thenReturn(HttpStatus.ACCEPTED, HttpStatus.NOT_FOUND);
 						});
+			}
+
+			default Receive receiveBulkOk() {
+
+				return receiveJsonFromFile("bulk-ok") //
+						.receive(Receive::ok);
 			}
 
 		}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,19 +30,25 @@ import java.lang.Long;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
-import org.springframework.data.domain.Page;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.Score;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.IndexOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
+import org.springframework.data.elasticsearch.junit.jupiter.ElasticsearchRestTemplateConfiguration;
+import org.springframework.data.elasticsearch.junit.jupiter.SpringIntegrationTest;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * @author Rizwan Idrees
@@ -50,19 +56,31 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @author Peter-Josef Meisch
  * @author James Bodkin
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration("classpath:elasticsearch-template-test.xml")
+@SpringIntegrationTest
+@ContextConfiguration(classes = { CriteriaQueryTests.Config.class })
 public class CriteriaQueryTests {
 
-	@Autowired private ElasticsearchTemplate elasticsearchTemplate;
+	@Configuration
+	@Import({ ElasticsearchRestTemplateConfiguration.class })
+	static class Config {}
 
-	@Before
+	private final IndexCoordinates index = IndexCoordinates.of("test-index-sample-core-query").withTypes("test-type");
+
+	@Autowired private ElasticsearchOperations operations;
+	private IndexOperations indexOperations;
+
+	@BeforeEach
 	public void before() {
+		indexOperations = operations.indexOps(SampleEntity.class);
+		indexOperations.delete();
+		indexOperations.create();
+		indexOperations.putMapping(indexOperations.createMapping(SampleEntity.class));
+		indexOperations.refresh();
+	}
 
-		elasticsearchTemplate.deleteIndex(SampleEntity.class);
-		elasticsearchTemplate.createIndex(SampleEntity.class);
-		elasticsearchTemplate.putMapping(SampleEntity.class);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+	@AfterEach
+	void after() {
+		indexOperations.delete();
 	}
 
 	@Test
@@ -78,13 +96,13 @@ public class CriteriaQueryTests {
 		IndexQuery indexQuery = new IndexQuery();
 		indexQuery.setId(documentId);
 		indexQuery.setObject(sampleEntity);
-		elasticsearchTemplate.index(indexQuery);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.index(indexQuery, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(
 				new Criteria("message").contains("test").and("message").contains("some"));
 
 		// when
-		SampleEntity sampleEntity1 = elasticsearchTemplate.queryForObject(criteriaQuery, SampleEntity.class);
+		SearchHit<SampleEntity> sampleEntity1 = operations.searchOne(criteriaQuery, SampleEntity.class, index);
 
 		// then
 		assertThat(sampleEntity1).isNotNull();
@@ -121,17 +139,17 @@ public class CriteriaQueryTests {
 		indexQuery2.setObject(sampleEntity2);
 
 		indexQueries.add(indexQuery2);
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(
 				new Criteria("message").contains("some").or("message").contains("test"));
 
 		// when
-		Page<SampleEntity> page = elasticsearchTemplate.queryForPage(criteriaQuery, SampleEntity.class);
+		SearchHits<SampleEntity> searchHits = operations.search(criteriaQuery, SampleEntity.class, index);
 
 		// then
-		assertThat(page).isNotNull();
-		assertThat(page.getTotalElements()).isGreaterThanOrEqualTo(1);
+		assertThat(searchHits).isNotNull();
+		assertThat(searchHits.getTotalHits()).isGreaterThanOrEqualTo(1);
 	}
 
 	@Test
@@ -152,20 +170,19 @@ public class CriteriaQueryTests {
 		indexQuery.setObject(sampleEntity);
 		indexQueries.add(indexQuery);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(new Criteria().and(new Criteria("message").contains("some")));
 
 		// when
 
-		Page<SampleEntity> page = elasticsearchTemplate.queryForPage(criteriaQuery, SampleEntity.class);
+		SearchHits<SampleEntity> searchHits = operations.search(criteriaQuery, SampleEntity.class, index);
 
 		// then
-		assertThat(page).isNotNull();
-		assertThat(page.getTotalElements()).isGreaterThanOrEqualTo(1);
+		assertThat(searchHits).isNotNull();
+		assertThat(searchHits.getTotalHits()).isGreaterThanOrEqualTo(1);
 	}
 
-	// @Ignore("DATAES-30")
 	@Test
 	public void shouldPerformOrOperationWithinCriteria() {
 
@@ -184,16 +201,16 @@ public class CriteriaQueryTests {
 		indexQuery.setObject(sampleEntity);
 		indexQueries.add(indexQuery);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(new Criteria().or(new Criteria("message").contains("some")));
 
 		// when
-		Page<SampleEntity> page = elasticsearchTemplate.queryForPage(criteriaQuery, SampleEntity.class);
+		SearchHits<SampleEntity> searchHits = operations.search(criteriaQuery, SampleEntity.class, index);
 
 		// then
-		assertThat(page).isNotNull();
-		assertThat(page.getTotalElements()).isGreaterThanOrEqualTo(1);
+		assertThat(searchHits).isNotNull();
+		assertThat(searchHits.getTotalHits()).isGreaterThanOrEqualTo(1);
 	}
 
 	@Test
@@ -213,16 +230,16 @@ public class CriteriaQueryTests {
 		indexQuery.setObject(sampleEntity);
 		indexQueries.add(indexQuery);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(new Criteria("message").is("some message"));
 
 		// when
-		Page<SampleEntity> page = elasticsearchTemplate.queryForPage(criteriaQuery, SampleEntity.class);
+		SearchHits<SampleEntity> searchHits = operations.search(criteriaQuery, SampleEntity.class, index);
 
 		// then
 		assertThat(criteriaQuery.getCriteria().getField().getName()).isEqualTo("message");
-		assertThat(page.getTotalElements()).isGreaterThanOrEqualTo(1);
+		assertThat(searchHits.getTotalHits()).isGreaterThanOrEqualTo(1);
 	}
 
 	@Test
@@ -255,16 +272,16 @@ public class CriteriaQueryTests {
 		indexQuery2.setObject(sampleEntity2);
 		indexQueries.add(indexQuery2);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(new Criteria("message").is("some message"));
 
 		// when
-		Page<SampleEntity> page = elasticsearchTemplate.queryForPage(criteriaQuery, SampleEntity.class);
+		SearchHits<SampleEntity> searchHits = operations.search(criteriaQuery, SampleEntity.class, index);
 
 		// then
 		assertThat(criteriaQuery.getCriteria().getField().getName()).isEqualTo("message");
-		assertThat(page.getTotalElements()).isEqualTo(1);
+		assertThat(searchHits.getTotalHits()).isEqualTo(1);
 	}
 
 	@Test
@@ -297,13 +314,13 @@ public class CriteriaQueryTests {
 		indexQuery2.setObject(sampleEntity2);
 		indexQueries.add(indexQuery2);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		Criteria criteria = new Criteria("message").endsWith("end");
 		CriteriaQuery criteriaQuery = new CriteriaQuery(criteria);
 
 		// when
-		SampleEntity sampleEntity = elasticsearchTemplate.queryForObject(criteriaQuery, SampleEntity.class);
+		SearchHit<SampleEntity> sampleEntity = operations.searchOne(criteriaQuery, SampleEntity.class, index);
 
 		// then
 		assertThat(criteriaQuery.getCriteria().getField().getName()).isEqualTo("message");
@@ -339,13 +356,13 @@ public class CriteriaQueryTests {
 		indexQuery2.setObject(sampleEntity2);
 		indexQueries.add(indexQuery2);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		Criteria criteria = new Criteria("message").startsWith("start");
 		CriteriaQuery criteriaQuery = new CriteriaQuery(criteria);
 
 		// when
-		SampleEntity sampleEntity = elasticsearchTemplate.queryForObject(criteriaQuery, SampleEntity.class);
+		SearchHit<SampleEntity> sampleEntity = operations.searchOne(criteriaQuery, SampleEntity.class, index);
 
 		// then
 		assertThat(criteriaQuery.getCriteria().getField().getName()).isEqualTo("message");
@@ -381,12 +398,12 @@ public class CriteriaQueryTests {
 		indexQuery2.setObject(sampleEntity2);
 		indexQueries.add(indexQuery2);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(new Criteria("message").contains("contains"));
 
 		// when
-		SampleEntity sampleEntity = elasticsearchTemplate.queryForObject(criteriaQuery, SampleEntity.class);
+		SearchHit<SampleEntity> sampleEntity = operations.searchOne(criteriaQuery, SampleEntity.class, index);
 
 		// then
 		assertThat(criteriaQuery.getCriteria().getField().getName()).isEqualTo("message");
@@ -422,12 +439,12 @@ public class CriteriaQueryTests {
 		indexQuery2.setObject(sampleEntity2);
 		indexQueries.add(indexQuery2);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(new Criteria("message").expression("+elasticsearch || test"));
 
 		// when
-		SampleEntity sampleEntity = elasticsearchTemplate.queryForObject(criteriaQuery, SampleEntity.class);
+		SearchHit<SampleEntity> sampleEntity = operations.searchOne(criteriaQuery, SampleEntity.class, index);
 
 		// then
 		assertThat(criteriaQuery.getCriteria().getField().getName()).isEqualTo("message");
@@ -463,13 +480,13 @@ public class CriteriaQueryTests {
 		indexQuery2.setObject(sampleEntity2);
 		indexQueries.add(indexQuery2);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(
 				new Criteria("message").startsWith("some").endsWith("search").contains("message").is("some message search"));
 
 		// when
-		SampleEntity sampleEntity = elasticsearchTemplate.queryForObject(criteriaQuery, SampleEntity.class);
+		SearchHit<SampleEntity> sampleEntity = operations.searchOne(criteriaQuery, SampleEntity.class, index);
 
 		// then
 		assertThat(criteriaQuery.getCriteria().getField().getName()).isEqualTo("message");
@@ -505,17 +522,17 @@ public class CriteriaQueryTests {
 		indexQuery2.setObject(sampleEntity2);
 		indexQueries.add(indexQuery2);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(new Criteria("message").is("foo").not());
 
 		// when
-		Page<SampleEntity> page = elasticsearchTemplate.queryForPage(criteriaQuery, SampleEntity.class);
+		SearchHits<SampleEntity> searchHits = operations.search(criteriaQuery, SampleEntity.class, index);
 
 		// then
 		assertThat(criteriaQuery.getCriteria().isNegating()).isTrue();
-		assertThat(page).isNotNull();
-		assertThat(page.iterator().next().getMessage()).doesNotContain("foo");
+		assertThat(searchHits).isNotNull();
+		assertThat(searchHits.iterator().next().getContent().getMessage()).doesNotContain("foo");
 	}
 
 	@Test
@@ -549,12 +566,12 @@ public class CriteriaQueryTests {
 		indexQuery2.setObject(sampleEntity2);
 		indexQueries.add(indexQuery2);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(new Criteria("rate").between(100, 150));
 
 		// when
-		SampleEntity sampleEntity = elasticsearchTemplate.queryForObject(criteriaQuery, SampleEntity.class);
+		SearchHit<SampleEntity> sampleEntity = operations.searchOne(criteriaQuery, SampleEntity.class, index);
 
 		// then
 		assertThat(sampleEntity).isNotNull();
@@ -591,16 +608,16 @@ public class CriteriaQueryTests {
 		indexQuery2.setObject(sampleEntity2);
 		indexQueries.add(indexQuery2);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(new Criteria("rate").between(350, null));
 
 		// when
-		Page<SampleEntity> page = elasticsearchTemplate.queryForPage(criteriaQuery, SampleEntity.class);
+		SearchHits<SampleEntity> searchHits = operations.search(criteriaQuery, SampleEntity.class, index);
 
 		// then
-		assertThat(page).isNotNull();
-		assertThat(page.getTotalElements()).isGreaterThanOrEqualTo(1);
+		assertThat(searchHits).isNotNull();
+		assertThat(searchHits.getTotalHits()).isGreaterThanOrEqualTo(1);
 	}
 
 	@Test
@@ -634,16 +651,16 @@ public class CriteriaQueryTests {
 		indexQuery2.setObject(sampleEntity2);
 		indexQueries.add(indexQuery2);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(new Criteria("rate").between(null, 550));
 
 		// when
-		Page<SampleEntity> page = elasticsearchTemplate.queryForPage(criteriaQuery, SampleEntity.class);
+		SearchHits<SampleEntity> searchHits = operations.search(criteriaQuery, SampleEntity.class, index);
 
 		// then
-		assertThat(page).isNotNull();
-		assertThat(page.getTotalElements()).isGreaterThanOrEqualTo(1);
+		assertThat(searchHits).isNotNull();
+		assertThat(searchHits.getTotalHits()).isGreaterThanOrEqualTo(1);
 	}
 
 	@Test
@@ -677,16 +694,16 @@ public class CriteriaQueryTests {
 		indexQuery2.setObject(sampleEntity2);
 		indexQueries.add(indexQuery2);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(new Criteria("rate").lessThanEqual(750));
 
 		// when
-		Page<SampleEntity> page = elasticsearchTemplate.queryForPage(criteriaQuery, SampleEntity.class);
+		SearchHits<SampleEntity> searchHits = operations.search(criteriaQuery, SampleEntity.class, index);
 
 		// then
-		assertThat(page).isNotNull();
-		assertThat(page.getTotalElements()).isGreaterThanOrEqualTo(1);
+		assertThat(searchHits).isNotNull();
+		assertThat(searchHits.getTotalHits()).isGreaterThanOrEqualTo(1);
 	}
 
 	@Test
@@ -720,16 +737,16 @@ public class CriteriaQueryTests {
 		indexQuery2.setObject(sampleEntity2);
 		indexQueries.add(indexQuery2);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(new Criteria("rate").greaterThanEqual(950));
 
 		// when
-		Page<SampleEntity> page = elasticsearchTemplate.queryForPage(criteriaQuery, SampleEntity.class);
+		SearchHits<SampleEntity> searchHits = operations.search(criteriaQuery, SampleEntity.class, index);
 
 		// then
-		assertThat(page).isNotNull();
-		assertThat(page.getTotalElements()).isGreaterThanOrEqualTo(1);
+		assertThat(searchHits).isNotNull();
+		assertThat(searchHits.getTotalHits()).isGreaterThanOrEqualTo(1);
 	}
 
 	@Test
@@ -763,15 +780,15 @@ public class CriteriaQueryTests {
 		indexQuery2.setObject(sampleEntity2);
 		indexQueries.add(indexQuery2);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 		CriteriaQuery criteriaQuery = new CriteriaQuery(new Criteria("message").contains("foo").boost(1));
 
 		// when
-		Page<SampleEntity> page = elasticsearchTemplate.queryForPage(criteriaQuery, SampleEntity.class);
+		SearchHits<SampleEntity> searchHits = operations.search(criteriaQuery, SampleEntity.class, index);
 
 		// then
-		assertThat(page.getTotalElements()).isGreaterThanOrEqualTo(1);
+		assertThat(searchHits.getTotalHits()).isGreaterThanOrEqualTo(1);
 	}
 
 	@Test
@@ -784,18 +801,18 @@ public class CriteriaQueryTests {
 		indexQueries.add(buildIndex(SampleEntity.builder().id("2").message("bc").build()));
 		indexQueries.add(buildIndex(SampleEntity.builder().id("3").message("ac").build()));
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.bulkIndex(indexQueries, index);
+		indexOperations.refresh();
 
 		// when
 		CriteriaQuery criteriaQuery = new CriteriaQuery(
 				new Criteria("message").contains("a").or(new Criteria("message").contains("b")));
 		criteriaQuery.setMinScore(2.0F);
-		Page<SampleEntity> page = elasticsearchTemplate.queryForPage(criteriaQuery, SampleEntity.class);
+		SearchHits<SampleEntity> searchHits = operations.search(criteriaQuery, SampleEntity.class, index);
 
 		// then
-		assertThat(page.getTotalElements()).isEqualTo(1);
-		assertThat(page.getContent().get(0).getMessage()).isEqualTo("ab");
+		assertThat(searchHits.getTotalHits()).isEqualTo(1);
+		assertThat(searchHits.getSearchHit(0).getContent().getMessage()).isEqualTo("ab");
 	}
 
 	@Test // DATAES-213
@@ -811,13 +828,13 @@ public class CriteriaQueryTests {
 		IndexQuery indexQuery = new IndexQuery();
 		indexQuery.setId(documentId);
 		indexQuery.setObject(sampleEntity);
-		elasticsearchTemplate.index(indexQuery);
-		elasticsearchTemplate.refresh(SampleEntity.class);
+		operations.index(indexQuery, index);
+		indexOperations.refresh();
 
 		CriteriaQuery criteriaQuery = new CriteriaQuery(new Criteria("message").is("Hello World!"));
 
 		// when
-		SampleEntity sampleEntity1 = elasticsearchTemplate.queryForObject(criteriaQuery, SampleEntity.class);
+		SearchHit<SampleEntity> sampleEntity1 = operations.searchOne(criteriaQuery, SampleEntity.class, index);
 
 		// then
 		assertThat(sampleEntity1).isNotNull();
@@ -828,8 +845,7 @@ public class CriteriaQueryTests {
 	@Getter
 	@NoArgsConstructor
 	@AllArgsConstructor
-	@Document(indexName = "test-index-sample-core-query", type = "test-type", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-sample-core-query", replicas = 0, refreshInterval = "-1")
 	static class SampleEntity {
 
 		@Id private String id;

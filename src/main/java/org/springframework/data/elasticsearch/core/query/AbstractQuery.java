@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,17 @@ package org.springframework.data.elasticsearch.core.query;
 
 import static java.util.Collections.*;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -41,21 +44,23 @@ import org.springframework.util.Assert;
 abstract class AbstractQuery implements Query {
 
 	protected Pageable pageable = DEFAULT_PAGE;
-	protected Sort sort;
-	protected List<String> indices = new ArrayList<>();
-	protected List<String> types = new ArrayList<>();
+	@Nullable protected Sort sort;
 	protected List<String> fields = new ArrayList<>();
-	protected SourceFilter sourceFilter;
+	@Nullable protected SourceFilter sourceFilter;
 	protected float minScore;
-	protected Collection<String> ids;
-	protected String route;
+	@Nullable protected Collection<String> ids;
+	@Nullable protected String route;
 	protected SearchType searchType = SearchType.DFS_QUERY_THEN_FETCH;
-	protected IndicesOptions indicesOptions;
+	@Nullable protected IndicesOptions indicesOptions;
 	protected boolean trackScores;
-	protected String preference;
-	protected Integer maxResults;
+	@Nullable protected String preference;
+	@Nullable protected Integer maxResults;
+	@Nullable protected HighlightQuery highlightQuery;
+	private boolean trackTotalHits = false;
+	@Nullable private Duration scrollTime;
 
 	@Override
+	@Nullable
 	public Sort getSort() {
 		return this.sort;
 	}
@@ -85,30 +90,11 @@ abstract class AbstractQuery implements Query {
 	}
 
 	@Override
-	public List<String> getIndices() {
-		return indices;
-	}
-
-	@Override
-	public void addIndices(String... indices) {
-		addAll(this.indices, indices);
-	}
-
-	@Override
-	public void addTypes(String... types) {
-		addAll(this.types, types);
-	}
-
-	@Override
-	public List<String> getTypes() {
-		return types;
-	}
-
-	@Override
 	public void addSourceFilter(SourceFilter sourceFilter) {
 		this.sourceFilter = sourceFilter;
 	}
 
+	@Nullable
 	@Override
 	public SourceFilter getSourceFilter() {
 		return sourceFilter;
@@ -139,6 +125,7 @@ abstract class AbstractQuery implements Query {
 		this.minScore = minScore;
 	}
 
+	@Nullable
 	@Override
 	public Collection<String> getIds() {
 		return ids;
@@ -148,6 +135,7 @@ abstract class AbstractQuery implements Query {
 		this.ids = ids;
 	}
 
+	@Nullable
 	@Override
 	public String getRoute() {
 		return route;
@@ -166,6 +154,7 @@ abstract class AbstractQuery implements Query {
 		return searchType;
 	}
 
+	@Nullable
 	@Override
 	public IndicesOptions getIndicesOptions() {
 		return indicesOptions;
@@ -194,6 +183,7 @@ abstract class AbstractQuery implements Query {
 		this.trackScores = trackScores;
 	}
 
+	@Nullable
 	@Override
 	public String getPreference() {
 		return preference;
@@ -209,6 +199,7 @@ abstract class AbstractQuery implements Query {
 		return maxResults != null;
 	}
 
+	@Nullable
 	@Override
 	public Integer getMaxResults() {
 		return maxResults;
@@ -216,5 +207,36 @@ abstract class AbstractQuery implements Query {
 
 	public void setMaxResults(Integer maxResults) {
 		this.maxResults = maxResults;
+	}
+
+	@Override
+	public void setHighlightQuery(HighlightQuery highlightQuery) {
+		this.highlightQuery = highlightQuery;
+	}
+
+	@Override
+	public Optional<HighlightQuery> getHighlightQuery() {
+		return Optional.ofNullable(highlightQuery);
+	}
+
+	@Override
+	public void setTrackTotalHits(boolean trackTotalHits) {
+		this.trackTotalHits = trackTotalHits;
+	}
+
+	@Override
+	public boolean getTrackTotalHits() {
+		return trackTotalHits;
+	}
+
+	@Nullable
+	@Override
+	public Duration getScrollTime() {
+		return scrollTime;
+	}
+
+	@Override
+	public void setScrollTime(@Nullable Duration scrollTime) {
+		this.scrollTime = scrollTime;
 	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2019 the original author or authors.
+ * Copyright 2014-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,24 +22,15 @@ import static org.springframework.data.elasticsearch.annotations.FieldType.*;
 import lombok.Builder;
 import lombok.Data;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.common.xcontent.XContentType;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.elasticsearch.UncategorizedElasticsearchException;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.core.query.UpdateQuery;
-import org.springframework.data.elasticsearch.core.query.UpdateQueryBuilder;
+import org.springframework.data.elasticsearch.junit.jupiter.ElasticsearchRestTemplateConfiguration;
+import org.springframework.data.elasticsearch.junit.jupiter.SpringIntegrationTest;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
-import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * @author Rizwan Idrees
@@ -55,52 +46,24 @@ import org.springframework.test.util.ReflectionTestUtils;
  * @author Don Wellington
  * @author Peter-Josef Meisch
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration("classpath:elasticsearch-rest-template-test.xml")
+@SpringIntegrationTest
+@ContextConfiguration(classes = { ElasticsearchRestTemplateConfiguration.class })
 public class ElasticsearchRestTemplateTests extends ElasticsearchTemplateTests {
 
-	@Test(expected = ElasticsearchStatusException.class)
+	@Test
 	public void shouldThrowExceptionIfDocumentDoesNotExistWhileDoingPartialUpdate() {
 
 		// when
-		IndexRequest indexRequest = new IndexRequest();
-		indexRequest.source("{}", XContentType.JSON);
-		UpdateQuery updateQuery = new UpdateQueryBuilder().withId(randomNumeric(5)).withClass(SampleEntity.class)
-				.withIndexRequest(indexRequest).build();
-		elasticsearchTemplate.update(updateQuery);
-	}
-
-	@Test // DATAES-227
-	@Override
-	public void shouldUseUpsertOnUpdate() throws IOException {
-
-		// given
-		Map<String, Object> doc = new HashMap<>();
-		doc.put("id", "1");
-		doc.put("message", "test");
-
-		UpdateRequest updateRequest = new UpdateRequest() //
-				.doc(doc) //
-				.upsert(doc);
-
-		UpdateQuery updateQuery = new UpdateQueryBuilder() //
-				.withClass(SampleEntity.class) //
-				.withId("1") //
-				.withUpdateRequest(updateRequest).build();
-
-		// when
-		UpdateRequest request = (UpdateRequest) ReflectionTestUtils //
-				.invokeMethod(elasticsearchTemplate, "prepareUpdate", updateQuery);
-
-		// then
-		assertThat(request).isNotNull();
-		assertThat(request.upsertRequest()).isNotNull();
+		org.springframework.data.elasticsearch.core.document.Document document = org.springframework.data.elasticsearch.core.document.Document
+				.create();
+		UpdateQuery updateQuery = UpdateQuery.builder(randomNumeric(5)).withDocument(document).build();
+		assertThatThrownBy(() -> operations.update(updateQuery, index))
+				.isInstanceOf(UncategorizedElasticsearchException.class);
 	}
 
 	@Data
 	@Builder
-	@Document(indexName = "test-index-sample-core-rest-template", type = "test-type", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-sample-core-rest-template", replicas = 0, refreshInterval = "-1")
 	static class SampleEntity {
 
 		@Id private String id;

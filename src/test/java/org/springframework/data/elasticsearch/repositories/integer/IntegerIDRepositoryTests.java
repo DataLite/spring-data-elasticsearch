@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,18 +21,23 @@ import java.util.Arrays;
 import java.util.Optional;
 
 import org.apache.commons.lang.math.RandomUtils;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.elasticsearch.annotations.Document;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.IndexOperations;
+import org.springframework.data.elasticsearch.junit.jupiter.ElasticsearchRestTemplateConfiguration;
+import org.springframework.data.elasticsearch.junit.jupiter.SpringIntegrationTest;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
+import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 import org.springframework.data.elasticsearch.utils.IndexInitializer;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * @author Rizwan Idrees
@@ -41,17 +46,30 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @author Christoph Strobl
  * @author Peter-Josef Meisch
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration("classpath:/integer-id-repository-test.xml")
+@SpringIntegrationTest
+@ContextConfiguration(classes = { IntegerIDRepositoryTests.Config.class })
 public class IntegerIDRepositoryTests {
+
+	@Configuration
+	@Import({ ElasticsearchRestTemplateConfiguration.class })
+	@EnableElasticsearchRepositories(considerNestedRepositories = true)
+	static class Config {}
 
 	@Autowired private IntegerIDRepository repository;
 
-	@Autowired private ElasticsearchTemplate elasticsearchTemplate;
+	@Autowired ElasticsearchOperations operations;
 
-	@Before
+	private IndexOperations indexOperations;
+
+	@BeforeEach
 	public void before() {
-		IndexInitializer.init(elasticsearchTemplate, IntegerIDEntity.class);
+		indexOperations = operations.indexOps(IntegerIDEntity.class);
+		IndexInitializer.init(indexOperations);
+	}
+
+	@AfterEach
+	void after() {
+		indexOperations.delete();
 	}
 
 	@Test
@@ -104,8 +122,7 @@ public class IntegerIDRepositoryTests {
 	 * @author Mohsin Husen
 	 */
 
-	@Document(indexName = "test-index-integer-keyed-entity", type = "integer-keyed-entity", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-integer-keyed-entity", replicas = 0, refreshInterval = "-1")
 	static class IntegerIDEntity {
 
 		@Id private Integer id;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 the original author or authors.
+ * Copyright 2019-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package org.springframework.data.elasticsearch.utils;
 
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.IndexOperations;
 
 /**
  * Utility to initialize indexes.
@@ -31,12 +32,22 @@ public class IndexInitializer {
 	 *
 	 * @param operations
 	 * @param clazz
+	 * @deprecated since 4.0, use {@link IndexInitializer#init(IndexOperations)}
 	 */
+	@Deprecated
 	public static void init(ElasticsearchOperations operations, Class<?> clazz) {
+		init(operations.indexOps(clazz));
+	}
 
-		operations.deleteIndex(clazz);
-		operations.createIndex(clazz);
-		operations.putMapping(clazz);
-		operations.refresh(clazz);
+	/**
+	 * Initialize a fresh index with mappings for {@link Class}. Drops the index if it exists before creation.
+	 *
+	 * @param indexOperations
+	 */
+	public static void init(IndexOperations indexOperations) {
+		indexOperations.delete();
+		indexOperations.create();
+		indexOperations.putMapping(indexOperations.createMapping());
+		indexOperations.refresh();
 	}
 }

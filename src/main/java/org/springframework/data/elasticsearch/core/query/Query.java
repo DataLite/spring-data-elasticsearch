@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,10 @@
  */
 package org.springframework.data.elasticsearch.core.query;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.action.support.IndicesOptions;
@@ -24,6 +26,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.lang.Nullable;
 
 /**
  * Query
@@ -43,7 +46,7 @@ public interface Query {
 	Pageable DEFAULT_PAGE = PageRequest.of(0, DEFAULT_PAGE_SIZE);
 
 	/**
-	 * Get get a {@link Query} that matches all documents in the index.
+	 * Get a {@link Query} that matches all documents in the index.
 	 *
 	 * @return new instance of {@link Query}.
 	 * @since 3.2
@@ -79,35 +82,8 @@ public interface Query {
 	/**
 	 * @return null if not set
 	 */
+	@Nullable
 	Sort getSort();
-
-	/**
-	 * Get Indices to be searched
-	 *
-	 * @return
-	 */
-	List<String> getIndices();
-
-	/**
-	 * Add Indices to be added as part of search request
-	 *
-	 * @param indices
-	 */
-	void addIndices(String... indices);
-
-	/**
-	 * Add types to be searched
-	 *
-	 * @param types
-	 */
-	void addTypes(String... types);
-
-	/**
-	 * Get types to be searched
-	 *
-	 * @return
-	 */
-	List<String> getTypes();
 
 	/**
 	 * Add fields to be added as part of search request
@@ -135,6 +111,7 @@ public interface Query {
 	 *
 	 * @return SourceFilter
 	 */
+	@Nullable
 	SourceFilter getSourceFilter();
 
 	/**
@@ -157,6 +134,7 @@ public interface Query {
 	 *
 	 * @return
 	 */
+	@Nullable
 	Collection<String> getIds();
 
 	/**
@@ -164,6 +142,7 @@ public interface Query {
 	 *
 	 * @return
 	 */
+	@Nullable
 	String getRoute();
 
 	/**
@@ -178,6 +157,7 @@ public interface Query {
 	 *
 	 * @return null if not set
 	 */
+	@Nullable
 	IndicesOptions getIndicesOptions();
 
 	/**
@@ -186,6 +166,7 @@ public interface Query {
 	 * @return
 	 * @since 3.2
 	 */
+	@Nullable
 	String getPreference();
 
 	/**
@@ -209,8 +190,69 @@ public interface Query {
 	 *
 	 * @since 4.0
 	 */
+	@Nullable
 	default Integer getMaxResults() {
 		return null;
 	}
 
+	/**
+	 * Sets the {@link HighlightQuery}.
+	 * 
+	 * @param highlightQuery the query to set
+	 * @since 4.0
+	 */
+	void setHighlightQuery(HighlightQuery highlightQuery);
+
+	/**
+	 * @return the optional set {@link HighlightQuery}.
+	 * @since 4.0
+	 */
+	default Optional<HighlightQuery> getHighlightQuery() {
+		return Optional.empty();
+	}
+
+	/**
+	 * Sets the flag whether to set the Track_total_hits parameter on queries {@see <a href=
+	 * "https://www.elastic.co/guide/en/elasticsearch/reference/7.0/search-request-track-total-hits.html">Elasticseacrh
+	 * documentation</>}
+	 * 
+	 * @param trackTotalHits the value to set.
+	 * @since 4.0
+	 */
+	void setTrackTotalHits(boolean trackTotalHits);
+
+	/**
+	 * Sets the flag whether to set the Track_total_hits parameter on queries {@see <a href=
+	 * "https://www.elastic.co/guide/en/elasticsearch/reference/7.0/search-request-track-total-hits.html">Elasticseacrh
+	 * documentation</>}
+	 *
+	 * @return the set value.
+	 * @since 4.0
+	 */
+	boolean getTrackTotalHits();
+
+	/**
+	 * For queries that are used in delete request, these are internally handled by Elasticsearch as scroll/bulk delete queries.
+	 * 
+	 * @return the scrolltime settings
+	 * @since 4.0
+	 */
+	@Nullable
+	Duration getScrollTime();
+
+	/**
+	 * For queries that are used in delete request, these are internally handled by Elasticsearch as scroll/bulk delete queries.
+	 * 
+	 * @param scrollTime the scrolltime settings
+	 * @since 4.0
+	 */
+	void setScrollTime(@Nullable Duration scrollTime);
+
+	/**
+	 * @return {@literal true} if scrollTimeMillis is set.
+	 * @since 4.0
+	 */
+	default boolean hasScrollTime() {
+		return getScrollTime() != null;
+	}
 }

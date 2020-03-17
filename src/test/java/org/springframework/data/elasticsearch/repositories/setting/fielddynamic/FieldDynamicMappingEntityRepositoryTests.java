@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2019 the original author or authors.
+ * Copyright 2014-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,19 +19,23 @@ import static org.assertj.core.api.Assertions.*;
 
 import java.util.Map;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Mapping;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
-import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.IndexOperations;
+import org.springframework.data.elasticsearch.junit.jupiter.ElasticsearchRestTemplateConfiguration;
+import org.springframework.data.elasticsearch.junit.jupiter.SpringIntegrationTest;
+import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
+import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 import org.springframework.data.elasticsearch.utils.IndexInitializer;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * FieldDynamicMappingEntityRepositoryTests
@@ -39,17 +43,27 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @author Ted Liang
  * @author Peter-Josef Meisch
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration("classpath:field-dynamic-settings-test.xml")
+@SpringIntegrationTest
+@ContextConfiguration(classes = { FieldDynamicMappingEntityRepositoryTests.Config.class })
 public class FieldDynamicMappingEntityRepositoryTests {
 
-	@Autowired private FieldDynamicMappingEntityRepository repository;
+	@Configuration
+	@Import({ ElasticsearchRestTemplateConfiguration.class })
+	@EnableElasticsearchRepositories(considerNestedRepositories = true)
+	static class Config {}
 
-	@Autowired private ElasticsearchTemplate elasticsearchTemplate;
+	@Autowired private ElasticsearchOperations operations;
+	private IndexOperations indexOperations;
 
-	@Before
+	@BeforeEach
 	public void before() {
-		IndexInitializer.init(elasticsearchTemplate, FieldDynamicMappingEntity.class);
+		indexOperations = operations.indexOps(FieldDynamicMappingEntity.class);
+		IndexInitializer.init(indexOperations);
+	}
+
+	@AfterEach
+	void after() {
+		indexOperations.delete();
 	}
 
 	@Test // DATAES-209
@@ -58,7 +72,7 @@ public class FieldDynamicMappingEntityRepositoryTests {
 		// given
 
 		// then
-		Map<String, Object> mapping = elasticsearchTemplate.getMapping(FieldDynamicMappingEntity.class);
+		Map<String, Object> mapping = operations.getMapping(FieldDynamicMappingEntity.class);
 		assertThat(mapping).isNotNull();
 
 		Map<String, Object> properties = (Map<String, Object>) mapping.get("properties");
@@ -85,7 +99,7 @@ public class FieldDynamicMappingEntityRepositoryTests {
 	/**
 	 * @author Ted Liang
 	 */
-	@Document(indexName = "test-index-field-dynamic-mapping", type = "test-field-mapping-type")
+	@Document(indexName = "test-index-field-dynamic-mapping")
 	static class FieldDynamicMappingEntity {
 
 		@Id private String id;
@@ -113,6 +127,6 @@ public class FieldDynamicMappingEntityRepositoryTests {
 	 * @author Ted Liang
 	 */
 	public interface FieldDynamicMappingEntityRepository
-			extends ElasticsearchCrudRepository<FieldDynamicMappingEntity, String> {}
+			extends ElasticsearchRepository<FieldDynamicMappingEntity, String> {}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 the original author or authors.
+ * Copyright 2018-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,13 @@ import java.net.SocketAddress;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.web.reactive.function.client.WebClient;
 
 /**
  * Configuration interface exposing common client configuration properties for Elasticsearch clients.
@@ -31,6 +34,7 @@ import org.springframework.http.HttpHeaders;
  * @author Mark Paluch
  * @author Peter-Josef Meisch
  * @author Huw Ayling-Miller
+ * @author Henrique Amaral
  * @since 3.2
  */
 public interface ClientConfiguration {
@@ -120,6 +124,13 @@ public interface ClientConfiguration {
 	Optional<SSLContext> getSslContext();
 
 	/**
+	 * Returns the {@link HostnameVerifier} to use. Can be {@link Optional#empty()} if unconfigured.
+	 *
+	 * @return the {@link HostnameVerifier} to use. Can be {@link Optional#empty()} if unconfigured.
+	 */
+	Optional<HostnameVerifier> getHostNameVerifier();
+
+	/**
 	 * Returns the {@link java.time.Duration connect timeout}.
 	 *
 	 * @see java.net.Socket#connect(SocketAddress, int)
@@ -143,6 +154,19 @@ public interface ClientConfiguration {
 	 * @since 4.0
 	 */
 	String getPathPrefix();
+
+	/**
+	 * returns an optionally set proxy in the form host:port
+	 * 
+	 * @return the optional proxy
+	 * @since 4.0
+	 */
+	Optional<String> getProxy();
+
+	/**
+	 * @return the function for configuring a WebClient.
+	 */
+	Function<WebClient, WebClient> getWebClientConfigurer();
 
 	/**
 	 * @author Christoph Strobl
@@ -210,6 +234,16 @@ public interface ClientConfiguration {
 		 * @return the {@link TerminalClientConfigurationBuilder}.
 		 */
 		TerminalClientConfigurationBuilder usingSsl(SSLContext sslContext);
+
+		/**
+		 * Connect via {@literal https} using the givens {@link SSLContext} and HostnameVerifier {@link HostnameVerifier}
+		 * .<br />
+		 * <strong>NOTE</strong> You need to leave out the protocol in
+		 * {@link ClientConfigurationBuilderWithRequiredEndpoint#connectedTo(String)}.
+		 *
+		 * @return the {@link TerminalClientConfigurationBuilder}.
+		 */
+		TerminalClientConfigurationBuilder usingSsl(SSLContext sslContext, HostnameVerifier hostnameVerifier);
 	}
 
 	/**
@@ -284,6 +318,20 @@ public interface ClientConfiguration {
 		 * @since 4.0
 		 */
 		TerminalClientConfigurationBuilder withPathPrefix(String pathPrefix);
+
+		/**
+		 * @param proxy a proxy formatted as String {@literal host:port}.
+		 * @return the {@link TerminalClientConfigurationBuilder}.
+		 */
+		TerminalClientConfigurationBuilder withProxy(String proxy);
+
+		/**
+		 * set customization hook in case of a reactive configuration
+		 * 
+		 * @param webClientConfigurer function to configure the WebClient
+		 * @return the {@link TerminalClientConfigurationBuilder}.
+		 */
+		TerminalClientConfigurationBuilder withWebClientConfigurer(Function<WebClient, WebClient> webClientConfigurer);
 
 		/**
 		 * Build the {@link ClientConfiguration} object.

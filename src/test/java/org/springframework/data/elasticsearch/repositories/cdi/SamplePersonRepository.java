@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2019 the original author or authors.
+ * Copyright 2014-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import org.springframework.data.repository.Repository;
 
 /**
  * @author Mark Paluch
- * @see DATAES-113
+ * @see <a href="https://jira.spring.io/browse/DATAES-113">DATAES-113</a>
  */
 public interface SamplePersonRepository
 		extends Repository<CdiRepositoryTests.Person, Long>, SamplePersonRepositoryCustom {

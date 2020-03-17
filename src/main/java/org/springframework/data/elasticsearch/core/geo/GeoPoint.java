@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.springframework.data.geo.Point;
  *
  * @author Franck Marchand
  * @author Mohsin Husen
+ * @author Peter-Josef Meisch
  */
 public class GeoPoint {
 
@@ -57,6 +58,14 @@ public class GeoPoint {
 
 	public static Point toPoint(GeoPoint point) {
 		return new Point(point.getLat(), point.getLon());
+	}
+
+	@Override
+	public String toString() {
+		return "GeoPoint{" +
+				"lat=" + lat +
+				", lon=" + lon +
+				'}';
 	}
 }
 

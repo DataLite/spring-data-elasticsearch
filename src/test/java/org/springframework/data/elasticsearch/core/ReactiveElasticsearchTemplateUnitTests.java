@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 the original author or authors.
+ * Copyright 2018-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -40,14 +41,12 @@ import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.action.support.WriteRequest.RefreshPolicy;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
-
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.domain.PageRequest;
@@ -59,22 +58,22 @@ import org.springframework.data.elasticsearch.client.reactive.ReactiveElasticsea
 import org.springframework.data.elasticsearch.core.geo.GeoPoint;
 import org.springframework.data.elasticsearch.core.query.Criteria;
 import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
+import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.data.elasticsearch.core.query.StringQuery;
 
 /**
  * @author Christoph Strobl
- * @currentRead Fool's Fate - Robin Hobb
  * @author Peter-Josef Meisch
  */
+@ExtendWith(MockitoExtension.class)
 public class ReactiveElasticsearchTemplateUnitTests {
-
-	@Rule //
-	public MockitoRule rule = MockitoJUnit.rule();
 
 	@Mock ReactiveElasticsearchClient client;
 	ReactiveElasticsearchTemplate template;
 
-	@Before
+	private IndexCoordinates index = IndexCoordinates.of("index").withTypes("type");
+
+	@BeforeEach
 	public void setUp() {
 
 		template = new ReactiveElasticsearchTemplate(client);
@@ -86,7 +85,7 @@ public class ReactiveElasticsearchTemplateUnitTests {
 		ArgumentCaptor<IndexRequest> captor = ArgumentCaptor.forClass(IndexRequest.class);
 		when(client.index(captor.capture())).thenReturn(Mono.empty());
 
-		template.save(Collections.singletonMap("key", "value"), "index", "type") //
+		template.save(Collections.singletonMap("key", "value"), index) //
 				.as(StepVerifier::create) //
 				.verifyComplete();
 
@@ -101,7 +100,7 @@ public class ReactiveElasticsearchTemplateUnitTests {
 
 		template.setRefreshPolicy(RefreshPolicy.WAIT_UNTIL);
 
-		template.save(Collections.singletonMap("key", "value"), "index", "type") //
+		template.save(Collections.singletonMap("key", "value"), index) //
 				.as(StepVerifier::create) //
 				.verifyComplete();
 
@@ -109,12 +108,12 @@ public class ReactiveElasticsearchTemplateUnitTests {
 	}
 
 	@Test // DATAES-504, DATAES-518
-	public void findShouldFallBackToDefaultIndexOptionsIfNotSet() {
+	public void searchShouldFallBackToDefaultIndexOptionsIfNotSet() {
 
 		ArgumentCaptor<SearchRequest> captor = ArgumentCaptor.forClass(SearchRequest.class);
 		when(client.search(captor.capture())).thenReturn(Flux.empty());
 
-		template.find(new CriteriaQuery(new Criteria("*")).setPageable(PageRequest.of(0, 10)), SampleEntity.class) //
+		template.search(new CriteriaQuery(new Criteria("*")).setPageable(PageRequest.of(0, 10)), SampleEntity.class) //
 				.as(StepVerifier::create) //
 				.verifyComplete();
 
@@ -122,14 +121,15 @@ public class ReactiveElasticsearchTemplateUnitTests {
 	}
 
 	@Test // DATAES-504, DATAES-518
-	public void findShouldApplyIndexOptionsIfSet() {
+	public void searchShouldApplyIndexOptionsIfSet() {
 
 		ArgumentCaptor<SearchRequest> captor = ArgumentCaptor.forClass(SearchRequest.class);
 		when(client.search(captor.capture())).thenReturn(Flux.empty());
 
 		template.setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN);
 
-		template.find(new CriteriaQuery(new Criteria("*")).setPageable(PageRequest.of(0, 10)), SampleEntity.class) //
+		Query query = new CriteriaQuery(new Criteria("*")).setPageable(PageRequest.of(0, 10));
+		template.search(query, SampleEntity.class, index) //
 				.as(StepVerifier::create) //
 				.verifyComplete();
 
@@ -137,12 +137,13 @@ public class ReactiveElasticsearchTemplateUnitTests {
 	}
 
 	@Test // DATAES-504
-	public void findShouldApplyPaginationIfSet() {
+	public void searchShouldApplyPaginationIfSet() {
 
 		ArgumentCaptor<SearchRequest> captor = ArgumentCaptor.forClass(SearchRequest.class);
 		when(client.search(captor.capture())).thenReturn(Flux.empty());
 
-		template.find(new CriteriaQuery(new Criteria("*")).setPageable(PageRequest.of(2, 50)), SampleEntity.class) //
+		Query query = new CriteriaQuery(new Criteria("*")).setPageable(PageRequest.of(2, 50));
+		template.search(query, SampleEntity.class, index) //
 				.as(StepVerifier::create) //
 				.verifyComplete();
 
@@ -151,12 +152,12 @@ public class ReactiveElasticsearchTemplateUnitTests {
 	}
 
 	@Test // DATAES-504, DATAES-518
-	public void findShouldUseScrollIfPaginationNotSet() {
+	public void searchShouldUseScrollIfPaginationNotSet() {
 
 		ArgumentCaptor<SearchRequest> captor = ArgumentCaptor.forClass(SearchRequest.class);
 		when(client.scroll(captor.capture())).thenReturn(Flux.empty());
 
-		template.find(new CriteriaQuery(new Criteria("*")).setPageable(Pageable.unpaged()), SampleEntity.class) //
+		template.search(new CriteriaQuery(new Criteria("*")).setPageable(Pageable.unpaged()), SampleEntity.class) //
 				.as(StepVerifier::create) //
 				.verifyComplete();
 
@@ -169,7 +170,7 @@ public class ReactiveElasticsearchTemplateUnitTests {
 		ArgumentCaptor<DeleteRequest> captor = ArgumentCaptor.forClass(DeleteRequest.class);
 		when(client.delete(captor.capture())).thenReturn(Mono.empty());
 
-		template.deleteById("id", "index", "type") //
+		template.delete("id", index) //
 				.as(StepVerifier::create) //
 				.verifyComplete();
 
@@ -184,7 +185,7 @@ public class ReactiveElasticsearchTemplateUnitTests {
 
 		template.setRefreshPolicy(RefreshPolicy.WAIT_UNTIL);
 
-		template.deleteById("id", "index", "type") //
+		template.delete("id", index) //
 				.as(StepVerifier::create) //
 				.verifyComplete();
 
@@ -197,7 +198,7 @@ public class ReactiveElasticsearchTemplateUnitTests {
 		ArgumentCaptor<DeleteByQueryRequest> captor = ArgumentCaptor.forClass(DeleteByQueryRequest.class);
 		when(client.deleteBy(captor.capture())).thenReturn(Mono.empty());
 
-		template.deleteBy(new StringQuery(QueryBuilders.matchAllQuery().toString()), Object.class, "index", "type") //
+		template.delete(new StringQuery(QueryBuilders.matchAllQuery().toString()), Object.class, index) //
 				.as(StepVerifier::create) //
 				.verifyComplete();
 
@@ -212,7 +213,7 @@ public class ReactiveElasticsearchTemplateUnitTests {
 
 		template.setRefreshPolicy(RefreshPolicy.NONE);
 
-		template.deleteBy(new StringQuery(QueryBuilders.matchAllQuery().toString()), Object.class, "index", "type") //
+		template.delete(new StringQuery(QueryBuilders.matchAllQuery().toString()), Object.class, index) //
 				.as(StepVerifier::create) //
 				.verifyComplete();
 
@@ -225,7 +226,7 @@ public class ReactiveElasticsearchTemplateUnitTests {
 		ArgumentCaptor<DeleteByQueryRequest> captor = ArgumentCaptor.forClass(DeleteByQueryRequest.class);
 		when(client.deleteBy(captor.capture())).thenReturn(Mono.empty());
 
-		template.deleteBy(new StringQuery(QueryBuilders.matchAllQuery().toString()), Object.class, "index", "type") //
+		template.delete(new StringQuery(QueryBuilders.matchAllQuery().toString()), Object.class, index) //
 				.as(StepVerifier::create) //
 				.verifyComplete();
 
@@ -240,7 +241,7 @@ public class ReactiveElasticsearchTemplateUnitTests {
 
 		template.setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN);
 
-		template.deleteBy(new StringQuery(QueryBuilders.matchAllQuery().toString()), Object.class, "index", "type") //
+		template.delete(new StringQuery(QueryBuilders.matchAllQuery().toString()), Object.class, index) //
 				.as(StepVerifier::create) //
 				.verifyComplete();
 
@@ -257,7 +258,7 @@ public class ReactiveElasticsearchTemplateUnitTests {
 	@NoArgsConstructor
 	@AllArgsConstructor
 	@Builder
-	@Document(indexName = "test-index-sample-core-reactive-template-Unit", type = "test-type", shards = 1, replicas = 0,
+	@Document(indexName = "test-index-sample-core-reactive-template-Unit", replicas = 0,
 			refreshInterval = "-1")
 	static class SampleEntity {
 

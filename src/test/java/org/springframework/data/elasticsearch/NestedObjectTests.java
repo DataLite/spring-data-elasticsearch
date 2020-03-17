@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,29 +30,30 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.domain.Page;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 import org.springframework.data.elasticsearch.annotations.InnerField;
 import org.springframework.data.elasticsearch.annotations.MultiField;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
-import org.springframework.data.elasticsearch.core.query.GetQuery;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.IndexQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.elasticsearch.core.query.SearchQuery;
+import org.springframework.data.elasticsearch.junit.jupiter.ElasticsearchTemplateConfiguration;
+import org.springframework.data.elasticsearch.junit.jupiter.SpringIntegrationTest;
 import org.springframework.data.elasticsearch.utils.IndexInitializer;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * @author Rizwan Idrees
@@ -61,18 +62,17 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @author Peter-Josef Meisch
  * @author Mark Paluch
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration("classpath:/elasticsearch-template-test.xml")
+@SpringIntegrationTest
+@ContextConfiguration(classes = { ElasticsearchTemplateConfiguration.class })
 public class NestedObjectTests {
 
-	@Autowired private ElasticsearchTemplate elasticsearchTemplate;
+	@Autowired private ElasticsearchOperations operations;
 
-	@Before
+	@BeforeEach
 	public void before() {
-
-		IndexInitializer.init(elasticsearchTemplate, Book.class);
-		IndexInitializer.init(elasticsearchTemplate, Person.class);
-		IndexInitializer.init(elasticsearchTemplate, PersonMultipleLevelNested.class);
+		IndexInitializer.init(operations.indexOps(Book.class));
+		IndexInitializer.init(operations.indexOps(Person.class));
+		IndexInitializer.init(operations.indexOps(PersonMultipleLevelNested.class));
 	}
 
 	@Test
@@ -122,14 +122,15 @@ public class NestedObjectTests {
 		indexQueries.add(indexQuery1);
 		indexQueries.add(indexQuery2);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(Person.class);
+		IndexCoordinates index = IndexCoordinates.of("test-index-person").withTypes("user");
+		operations.bulkIndex(indexQueries, index);
+		operations.indexOps(Person.class).refresh();
 
 		QueryBuilder builder = nestedQuery("car",
 				boolQuery().must(termQuery("car.name", "saturn")).must(termQuery("car.model", "imprezza")), ScoreMode.None);
 
-		SearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(builder).build();
-		List<Person> persons = elasticsearchTemplate.queryForList(searchQuery, Person.class);
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(builder).build();
+		SearchHits<Person> persons = operations.search(searchQuery, Person.class, index);
 
 		assertThat(persons).hasSize(1);
 	}
@@ -141,14 +142,13 @@ public class NestedObjectTests {
 		List<IndexQuery> indexQueries = createPerson();
 
 		// when
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(PersonMultipleLevelNested.class);
+		operations.bulkIndex(indexQueries,
+				IndexCoordinates.of("test-index-person-multiple-level-nested").withTypes("user"));
+		operations.indexOps(PersonMultipleLevelNested.class).refresh();
 
 		// then
-		GetQuery getQuery = new GetQuery();
-		getQuery.setId("1");
-		PersonMultipleLevelNested personIndexed = elasticsearchTemplate.queryForObject(getQuery,
-				PersonMultipleLevelNested.class);
+		PersonMultipleLevelNested personIndexed = operations.get("1", PersonMultipleLevelNested.class,
+				IndexCoordinates.of("test-index-person-multiple-level-nested").withTypes("user"));
 		assertThat(personIndexed).isNotNull();
 	}
 
@@ -159,10 +159,11 @@ public class NestedObjectTests {
 		List<IndexQuery> indexQueries = createPerson();
 
 		// when
-		elasticsearchTemplate.bulkIndex(indexQueries);
+		operations.bulkIndex(indexQueries,
+				IndexCoordinates.of("test-index-person-multiple-level-nested").withTypes("user"));
 
 		// then
-		Map<String, Object> mapping = elasticsearchTemplate.getMapping(PersonMultipleLevelNested.class);
+		Map<String, Object> mapping = operations.indexOps(PersonMultipleLevelNested.class).getMapping();
 
 		assertThat(mapping).isNotNull();
 		Map<String, Object> propertyMap = (Map<String, Object>) mapping.get("properties");
@@ -178,21 +179,22 @@ public class NestedObjectTests {
 		List<IndexQuery> indexQueries = createPerson();
 
 		// when
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(PersonMultipleLevelNested.class);
+		IndexCoordinates index = IndexCoordinates.of("test-index-person-multiple-level-nested").withTypes("user");
+		operations.bulkIndex(indexQueries, index);
+		operations.indexOps(PersonMultipleLevelNested.class).refresh();
 
 		// then
 		BoolQueryBuilder builder = boolQuery();
 		builder.must(nestedQuery("girlFriends", termQuery("girlFriends.type", "temp"), ScoreMode.None)).must(
 				nestedQuery("girlFriends.cars", termQuery("girlFriends.cars.name", "Ford".toLowerCase()), ScoreMode.None));
 
-		SearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(builder).build();
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(builder).build();
 
-		Page<PersonMultipleLevelNested> personIndexed = elasticsearchTemplate.queryForPage(searchQuery,
-				PersonMultipleLevelNested.class);
+		SearchHits<PersonMultipleLevelNested> personIndexed = operations.search(searchQuery,
+				PersonMultipleLevelNested.class, index);
 		assertThat(personIndexed).isNotNull();
-		assertThat(personIndexed.getTotalElements()).isEqualTo(1);
-		assertThat(personIndexed.getContent().get(0).getId()).isEqualTo("1");
+		assertThat(personIndexed.getTotalHits()).isEqualTo(1);
+		assertThat(personIndexed.getSearchHit(0).getContent().getId()).isEqualTo("1");
 	}
 
 	private List<IndexQuery> createPerson() {
@@ -317,14 +319,15 @@ public class NestedObjectTests {
 		indexQueries.add(indexQuery1);
 		indexQueries.add(indexQuery2);
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(Person.class);
+		IndexCoordinates index = IndexCoordinates.of("test-index-person").withTypes("user");
+		operations.bulkIndex(indexQueries, index);
+		operations.indexOps(Person.class).refresh();
 
 		// when
 		QueryBuilder builder = nestedQuery("books", boolQuery().must(termQuery("books.name", "java")), ScoreMode.None);
 
-		SearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(builder).build();
-		List<Person> persons = elasticsearchTemplate.queryForList(searchQuery, Person.class);
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(builder).build();
+		SearchHits<Person> persons = operations.search(searchQuery, Person.class, index);
 
 		// then
 		assertThat(persons).hasSize(1);
@@ -365,22 +368,22 @@ public class NestedObjectTests {
 		indexQueries.add(indexQuery2);
 
 		// when
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(Book.class);
+		IndexCoordinates index = IndexCoordinates.of("test-index-book-nested-objects").withTypes("book");
+		operations.bulkIndex(indexQueries, index);
+		operations.indexOps(Book.class).refresh();
 
 		// then
-		SearchQuery searchQuery = new NativeSearchQueryBuilder()
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(nestedQuery("buckets", termQuery("buckets.1", "test3"), ScoreMode.None)).build();
-		Page<Book> books = elasticsearchTemplate.queryForPage(searchQuery, Book.class);
+		SearchHits<Book> books = operations.search(searchQuery, Book.class, index);
 
-		assertThat(books.getContent()).hasSize(1);
-		assertThat(books.getContent().get(0).getId()).isEqualTo(book2.getId());
+		assertThat(books.getSearchHits()).hasSize(1);
+		assertThat(books.getSearchHit(0).getContent().getId()).isEqualTo(book2.getId());
 	}
 
 	@Setter
 	@Getter
-	@Document(indexName = "test-index-book-nested-objects", type = "book", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-book-nested-objects", replicas = 0, refreshInterval = "-1")
 	static class Book {
 
 		@Id private String id;
@@ -393,7 +396,7 @@ public class NestedObjectTests {
 	}
 
 	@Data
-	@Document(indexName = "test-index-person", type = "user", shards = 1, replicas = 0, refreshInterval = "-1")
+	@Document(indexName = "test-index-person", replicas = 0, refreshInterval = "-1")
 	static class Person {
 
 		@Id private String id;
@@ -418,8 +421,7 @@ public class NestedObjectTests {
 	 * @author Artur Konczak
 	 */
 	@Data
-	@Document(indexName = "test-index-person-multiple-level-nested", type = "user", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-person-multiple-level-nested", replicas = 0, refreshInterval = "-1")
 	static class PersonMultipleLevelNested {
 
 		@Id private String id;

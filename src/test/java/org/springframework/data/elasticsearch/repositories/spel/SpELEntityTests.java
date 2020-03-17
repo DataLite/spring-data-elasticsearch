@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2019 the original author or authors.
+ * Copyright 2014-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,18 +18,24 @@ package org.springframework.data.elasticsearch.repositories.spel;
 import static org.assertj.core.api.Assertions.*;
 
 import org.elasticsearch.index.query.QueryBuilders;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.IndexOperations;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
+import org.springframework.data.elasticsearch.junit.jupiter.ElasticsearchRestTemplateConfiguration;
+import org.springframework.data.elasticsearch.junit.jupiter.SpringIntegrationTest;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
+import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 import org.springframework.data.elasticsearch.utils.IndexInitializer;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * SpELEntityTest
@@ -37,18 +43,29 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @author Artur Konczak
  * @author Peter-Josef Meisch
  */
-
-@RunWith(SpringRunner.class)
-@ContextConfiguration("classpath:/spel-repository-test.xml")
+@SpringIntegrationTest
+@ContextConfiguration(classes = { SpELEntityTests.Config.class })
 public class SpELEntityTests {
+
+	@Configuration
+	@Import(ElasticsearchRestTemplateConfiguration.class)
+	@EnableElasticsearchRepositories(considerNestedRepositories = true)
+	static class Config {}
 
 	@Autowired private SpELRepository repository;
 
-	@Autowired private ElasticsearchTemplate template;
+	@Autowired private ElasticsearchOperations operations;
+	private IndexOperations indexOperations;
 
-	@Before
+	@BeforeEach
 	public void before() {
-		IndexInitializer.init(template, SpELEntity.class);
+		indexOperations = operations.indexOps(SpELEntity.class);
+		IndexInitializer.init(indexOperations);
+	}
+
+	@AfterEach
+	void after() {
+		operations.indexOps(IndexCoordinates.of("test-index-abz-*")).delete();
 	}
 
 	@Test
@@ -62,8 +79,7 @@ public class SpELEntityTests {
 
 		// then
 		NativeSearchQuery nativeSearchQuery = new NativeSearchQuery(QueryBuilders.matchAllQuery());
-		nativeSearchQuery.addIndices("test-index-abz-entity");
-		long count = template.count(nativeSearchQuery);
+		long count = operations.count(nativeSearchQuery, IndexCoordinates.of("test-index-abz-entity"));
 		assertThat(count).isEqualTo(2);
 	}
 
@@ -78,9 +94,7 @@ public class SpELEntityTests {
 
 		// then
 		NativeSearchQuery nativeSearchQuery = new NativeSearchQuery(QueryBuilders.matchAllQuery());
-		nativeSearchQuery.addIndices("test-index-abz-entity");
-		nativeSearchQuery.addTypes("myType");
-		long count = template.count(nativeSearchQuery);
+		long count = operations.count(nativeSearchQuery, IndexCoordinates.of("test-index-abz-entity"));
 		assertThat(count).isEqualTo(1);
 	}
 
@@ -89,8 +103,7 @@ public class SpELEntityTests {
 	 *
 	 * @author Artur Konczak
 	 */
-	@Document(indexName = "#{'test-index-abz'+'-'+'entity'}", type = "#{'my'+'Type'}", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "#{'test-index-abz'+'-'+'entity'}", replicas = 0, refreshInterval = "-1")
 	static class SpELEntity {
 
 		@Id private String id;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package org.springframework.data.elasticsearch.core.mapping;
 
 import org.elasticsearch.index.VersionType;
+import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.mapping.PersistentEntity;
 import org.springframework.lang.Nullable;
 
@@ -28,12 +29,11 @@ import org.springframework.lang.Nullable;
  * @author Sascha Woo
  * @author Oliver Gierke
  * @author Ivan Greene
+ * @author Peter-Josef Meisch
  */
 public interface ElasticsearchPersistentEntity<T> extends PersistentEntity<T, ElasticsearchPersistentProperty> {
 
-	String getIndexName();
-
-	String getIndexType();
+	IndexCoordinates getIndexCoordinates();
 
 	short getShards();
 
@@ -41,29 +41,36 @@ public interface ElasticsearchPersistentEntity<T> extends PersistentEntity<T, El
 
 	boolean isUseServerConfiguration();
 
+	@Nullable
 	String getRefreshInterval();
 
+	@Nullable
 	String getIndexStoreType();
 
+	@Override
 	ElasticsearchPersistentProperty getVersionProperty();
 
+	@Nullable
 	String getParentType();
 
+	@Nullable
 	ElasticsearchPersistentProperty getParentIdProperty();
 
 	String settingPath();
 
-	VersionType getVersionType();
+	@Nullable VersionType getVersionType();
 
 	boolean isCreateIndexAndMapping();
 
 	/**
-	 * Returns whether the {@link ElasticsearchPersistentEntity} has an score property. If this call returns
+	 * Returns whether the {@link ElasticsearchPersistentEntity} has a score property. If this call returns
 	 * {@literal true}, {@link #getScoreProperty()} will return a non-{@literal null} value.
 	 *
 	 * @return false when {@link ElasticsearchPersistentEntity} does not define a score property.
 	 * @since 3.1
+	 * @deprecated since 4.0
 	 */
+	@Deprecated
 	boolean hasScoreProperty();
 
 	/**
@@ -73,7 +80,20 @@ public interface ElasticsearchPersistentEntity<T> extends PersistentEntity<T, El
 	 * @return the score {@link ElasticsearchPersistentProperty} of the {@link PersistentEntity} or {@literal null} if not
 	 *         defined.
 	 * @since 3.1
+	 * @deprecated since 4.0
 	 */
 	@Nullable
+	@Deprecated
 	ElasticsearchPersistentProperty getScoreProperty();
+
+	/**
+	 * returns the {@link ElasticsearchPersistentProperty} with the given fieldName (may be set by the {@link Field}
+	 * annotation.
+	 *
+	 * @param fieldName to field name for the search, must not be {@literal null}
+	 * @return the found property, otherwise null
+	 * @since 4.0
+	 */
+	@Nullable
+	ElasticsearchPersistentProperty getPersistentPropertyWithFieldName(String fieldName);
 }

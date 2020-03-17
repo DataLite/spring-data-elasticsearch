@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2019 the original author or authors.
+ * Copyright 2014-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,17 +31,17 @@ import java.util.Optional;
 
 import org.apache.webbeans.cditest.CdiTestContainer;
 import org.apache.webbeans.cditest.CdiTestContainerLoader;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 import org.springframework.data.elasticsearch.annotations.InnerField;
 import org.springframework.data.elasticsearch.annotations.MultiField;
+import org.springframework.lang.Nullable;
 
 /**
  * @author Mohsin Husen
@@ -51,12 +51,12 @@ import org.springframework.data.elasticsearch.annotations.MultiField;
  */
 public class CdiRepositoryTests {
 
-	private static CdiTestContainer cdiContainer;
+	@Nullable private static CdiTestContainer cdiContainer;
 	private CdiProductRepository repository;
 	private SamplePersonRepository personRepository;
 	private QualifiedProductRepository qualifiedProductRepository;
 
-	@BeforeClass
+	@BeforeAll
 	public static void init() throws Exception {
 
 		cdiContainer = CdiTestContainerLoader.getCdiContainer();
@@ -64,14 +64,14 @@ public class CdiRepositoryTests {
 		cdiContainer.bootContainer();
 	}
 
-	@AfterClass
+	@AfterAll
 	public static void shutdown() throws Exception {
 
 		cdiContainer.stopContexts();
 		cdiContainer.shutdownContainer();
 	}
 
-	@Before
+	@BeforeEach
 	public void setUp() {
 
 		CdiRepositoryClient client = cdiContainer.getInstance(CdiRepositoryClient.class);
@@ -159,8 +159,7 @@ public class CdiRepositoryTests {
 	@NoArgsConstructor
 	@AllArgsConstructor
 	@Builder
-	@Document(indexName = "test-index-product-cdi-repository", type = "test-product-type", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-product-cdi-repository", replicas = 0, refreshInterval = "-1")
 	static class Product {
 
 		@Id private String id;
@@ -189,8 +188,7 @@ public class CdiRepositoryTests {
 	}
 
 	@Data
-	@Document(indexName = "test-index-person-cdi-repository", type = "user", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-person-cdi-repository", replicas = 0, refreshInterval = "-1")
 	static class Person {
 
 		@Id private String id;
@@ -207,8 +205,7 @@ public class CdiRepositoryTests {
 	@NoArgsConstructor
 	@AllArgsConstructor
 	@Builder
-	@Document(indexName = "test-index-book-cdi-repository", type = "book", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-book-cdi-repository", replicas = 0, refreshInterval = "-1")
 	static class Book {
 
 		@Id private String id;

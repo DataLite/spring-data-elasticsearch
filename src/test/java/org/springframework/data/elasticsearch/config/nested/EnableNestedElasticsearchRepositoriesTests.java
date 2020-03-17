@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2019 the original author or authors.
+ * Copyright 2015-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,49 +24,52 @@ import lombok.Data;
 import java.lang.Double;
 import java.lang.Long;
 
-import org.elasticsearch.node.NodeValidationException;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
-import org.springframework.data.elasticsearch.Utils;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.Score;
 import org.springframework.data.elasticsearch.annotations.ScriptedField;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.geo.GeoPoint;
+import org.springframework.data.elasticsearch.junit.jupiter.ElasticsearchRestTemplateConfiguration;
+import org.springframework.data.elasticsearch.junit.jupiter.SpringIntegrationTest;
 import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 import org.springframework.data.repository.Repository;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * @author Kevin Leturc
  * @author Peter-Josef Meisch
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration
+@SpringIntegrationTest
+@ContextConfiguration(classes = { EnableNestedElasticsearchRepositoriesTests.Config.class })
 public class EnableNestedElasticsearchRepositoriesTests {
 
 	@Configuration
+	@Import({ ElasticsearchRestTemplateConfiguration.class })
 	@EnableElasticsearchRepositories(basePackages = { "org.springframework.data.elasticsearch.config.nested" },
 			considerNestedRepositories = true)
-	static class Config {
-
-		@Bean
-		public ElasticsearchOperations elasticsearchTemplate() throws NodeValidationException {
-			return new ElasticsearchTemplate(Utils.getNodeClient());
-		}
-
-	}
+	static class Config {}
 
 	@Autowired(required = false) private SampleRepository nestedRepository;
+	@Autowired ElasticsearchOperations operations;
+
+	@BeforeEach
+	void setUp() {
+		operations.indexOps(SampleEntity.class).delete();
+	}
+
+	@AfterEach
+	void tearDown() {
+		operations.indexOps(SampleEntity.class).delete();
+	}
 
 	@Test
 	public void hasNestedRepository() {
@@ -75,8 +78,7 @@ public class EnableNestedElasticsearchRepositoriesTests {
 
 	@Data
 	@Builder
-	@Document(indexName = "test-index-sample-config-nested", type = "test-type", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-sample-config-nested", replicas = 0, refreshInterval = "-1")
 	static class SampleEntity {
 
 		@Id private String id;

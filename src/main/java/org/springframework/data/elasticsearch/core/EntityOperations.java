@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 the original author or authors.
+ * Copyright 2018-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 package org.springframework.data.elasticsearch.core;
 
 import lombok.AccessLevel;
-import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
@@ -25,6 +24,7 @@ import java.util.Map;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.data.elasticsearch.core.mapping.ElasticsearchPersistentEntity;
 import org.springframework.data.elasticsearch.core.mapping.ElasticsearchPersistentProperty;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.mapping.IdentifierAccessor;
 import org.springframework.data.mapping.PersistentPropertyAccessor;
 import org.springframework.data.mapping.context.MappingContext;
@@ -38,12 +38,17 @@ import org.springframework.util.StringUtils;
  *
  * @author Mark Paluch
  * @author Christoph Strobl
+ * @author Peter-Josef Meisch
  * @since 3.2
  */
-@RequiredArgsConstructor
 class EntityOperations {
 
 	private static final String ID_FIELD = "id";
+
+	public EntityOperations(
+			@NonNull MappingContext<? extends ElasticsearchPersistentEntity<?>, ElasticsearchPersistentProperty> context) {
+		this.context = context;
+	}
 
 	private final @NonNull MappingContext<? extends ElasticsearchPersistentEntity<?>, ElasticsearchPersistentProperty> context;
 
@@ -94,8 +99,6 @@ class EntityOperations {
 	 * @param index index name override can be {@literal null}.
 	 * @param type index type override can be {@literal null}.
 	 * @return the {@link IndexCoordinates} containing index name and index type.
-	 * @see ElasticsearchPersistentEntity#getIndexName()
-	 * @see ElasticsearchPersistentEntity#getIndexType()
 	 */
 	IndexCoordinates determineIndex(Entity<?> entity, @Nullable String index, @Nullable String type) {
 		return determineIndex(entity.getPersistentEntity(), index, type);
@@ -111,32 +114,20 @@ class EntityOperations {
 	 * @param index index name override can be {@literal null}.
 	 * @param type index type override can be {@literal null}.
 	 * @return the {@link IndexCoordinates} containing index name and index type.
-	 * @see ElasticsearchPersistentEntity#getIndexName()
-	 * @see ElasticsearchPersistentEntity#getIndexType()
 	 */
 	IndexCoordinates determineIndex(ElasticsearchPersistentEntity<?> persistentEntity, @Nullable String index,
 			@Nullable String type) {
-		return new IndexCoordinates(indexName(persistentEntity, index), typeName(persistentEntity, type));
+		return persistentEntity.getIndexCoordinates();
 	}
 
 	private static String indexName(@Nullable ElasticsearchPersistentEntity<?> entity, @Nullable String index) {
 
 		if (StringUtils.isEmpty(index)) {
 			Assert.notNull(entity, "Cannot determine index name");
-			return entity.getIndexName();
+			return entity.getIndexCoordinates().getIndexName();
 		}
 
 		return index;
-	}
-
-	private static String typeName(@Nullable ElasticsearchPersistentEntity<?> entity, @Nullable String type) {
-
-		if (StringUtils.isEmpty(type)) {
-			Assert.notNull(entity, "Cannot determine index type");
-			return entity.getIndexType();
-		}
-
-		return type;
 	}
 
 	/**
@@ -263,6 +254,7 @@ class EntityOperations {
 		 * @return the current version or {@literal null} in case it's uninitialized or the entity doesn't expose a version
 		 *         property.
 		 */
+		@Override
 		@Nullable
 		Number getVersion();
 	}
@@ -615,14 +607,4 @@ class EntityOperations {
 		}
 	}
 
-	/**
-	 * Value object encapsulating index name and index type.
-	 */
-	@RequiredArgsConstructor(access = AccessLevel.PROTECTED)
-	@Getter
-	static class IndexCoordinates {
-
-		private final String indexName;
-		private final String typeName;
-	}
 }

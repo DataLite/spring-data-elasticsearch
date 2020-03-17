@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,8 @@
  */
 package org.springframework.data.elasticsearch.repository.support;
 
-import java.util.Objects;
-
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.lang.Nullable;
 
 /**
  * Elasticsearch specific repository implementation. Likely to be used as target within
@@ -27,24 +26,17 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
  * @author Mohsin Husen
  * @author Ryan Henszey
  * @author Sascha Woo
+ * @author Peter-Josef Meisch
  */
 public class SimpleElasticsearchRepository<T, ID> extends AbstractElasticsearchRepository<T, ID> {
-
-	public SimpleElasticsearchRepository() {
-		super();
-	}
 
 	public SimpleElasticsearchRepository(ElasticsearchEntityInformation<T, ID> metadata,
 			ElasticsearchOperations elasticsearchOperations) {
 		super(metadata, elasticsearchOperations);
 	}
 
-	public SimpleElasticsearchRepository(ElasticsearchOperations elasticsearchOperations) {
-		super(elasticsearchOperations);
-	}
-
 	@Override
-	protected String stringIdRepresentation(ID id) {
-		return Objects.toString(id, null);
+	protected @Nullable String stringIdRepresentation(@Nullable ID id) {
+		return operations.stringIdRepresentation(id);
 	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ package org.springframework.data.elasticsearch.config.namespace;
 
 import static org.assertj.core.api.Assertions.*;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.data.annotation.Id;
@@ -27,7 +27,7 @@ import org.springframework.data.elasticsearch.client.RestClientFactoryBean;
 import org.springframework.data.elasticsearch.client.TransportClientFactoryBean;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 /**
  * @author Rizwan Idrees
@@ -36,7 +36,7 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @author Peter-Josef Meisch
  */
 
-@RunWith(SpringRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration("namespace.xml")
 public class ElasticsearchNamespaceHandlerTests {
 
@@ -63,7 +63,7 @@ public class ElasticsearchNamespaceHandlerTests {
 		assertThat(context.getBean(RestClientFactoryBean.class)).isInstanceOf(RestClientFactoryBean.class);
 	}
 
-	@Document(indexName = "test-index-config-namespace", type = "test-type", createIndex = false)
+	@Document(indexName = "test-index-config-namespace", createIndex = false)
 	static class CreateIndexFalseEntity {
 
 		@Id private String id;

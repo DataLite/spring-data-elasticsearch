@@ -2,19 +2,22 @@ package org.springframework.data.elasticsearch.core.aggregation;
 
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.Aggregations;
-import org.springframework.data.elasticsearch.core.FacetedPage;
 import org.springframework.data.elasticsearch.core.ScoredPage;
 import org.springframework.data.elasticsearch.core.ScrolledPage;
+import org.springframework.lang.Nullable;
 
 /**
  * @author Petar Tahchiev
  * @author Sascha Woo
+ * @author Peter-Josef Meisch
+ * @deprecated since 4.0, use {@link org.springframework.data.elasticsearch.core.SearchHits} to return values.
  */
-public interface AggregatedPage<T> extends FacetedPage<T>, ScrolledPage<T>, ScoredPage<T> {
+@Deprecated
+public interface AggregatedPage<T> extends ScrolledPage<T>, ScoredPage<T> {
 
 	boolean hasAggregations();
 
-	Aggregations getAggregations();
+	@Nullable Aggregations getAggregations();
 
-	Aggregation getAggregation(String name);
+	@Nullable Aggregation getAggregation(String name);
 }

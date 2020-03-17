@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 the original author or authors.
+ * Copyright 2019-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,13 +30,12 @@ import org.springframework.data.repository.query.parser.PartTree;
 public class ReactivePartTreeElasticsearchQuery extends AbstractReactiveElasticsearchRepositoryQuery {
 
 	private final PartTree tree;
-	private final ResultProcessor processor;
 
 	public ReactivePartTreeElasticsearchQuery(ReactiveElasticsearchQueryMethod queryMethod,
 			ReactiveElasticsearchOperations elasticsearchOperations) {
 		super(queryMethod, elasticsearchOperations);
 
-		this.processor = queryMethod.getResultProcessor();
+		ResultProcessor processor = queryMethod.getResultProcessor();
 		this.tree = new PartTree(queryMethod.getName(), processor.getReturnedType().getDomainType());
 	}
 
@@ -47,6 +46,7 @@ public class ReactivePartTreeElasticsearchQuery extends AbstractReactiveElastics
 		if (tree.isLimiting()) {
 			query.setMaxResults(tree.getMaxResults());
 		}
+
 		return query;
 	}
 

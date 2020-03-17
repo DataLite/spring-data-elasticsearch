@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2019 the original author or authors.
+ * Copyright 2014-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,8 +31,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.annotation.Transient;
+import org.springframework.data.elasticsearch.ElasticsearchException;
 import org.springframework.data.elasticsearch.annotations.CompletionContext;
 import org.springframework.data.elasticsearch.annotations.CompletionField;
+import org.springframework.data.elasticsearch.annotations.DynamicMapping;
 import org.springframework.data.elasticsearch.annotations.DynamicTemplates;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -47,6 +49,7 @@ import org.springframework.data.elasticsearch.core.convert.ElasticsearchConverte
 import org.springframework.data.elasticsearch.core.geo.GeoPoint;
 import org.springframework.data.elasticsearch.core.mapping.ElasticsearchPersistentEntity;
 import org.springframework.data.elasticsearch.core.mapping.ElasticsearchPersistentProperty;
+import org.springframework.data.mapping.MappingException;
 import org.springframework.data.mapping.PropertyHandler;
 import org.springframework.data.util.TypeInformation;
 import org.springframework.lang.Nullable;
@@ -86,6 +89,7 @@ public class MappingBuilder {
 	private static final String COMPLETION_MAX_INPUT_LENGTH = "max_input_length";
 	private static final String COMPLETION_CONTEXTS = "contexts";
 
+	private static final String TYPE_DYNAMIC = "dynamic";
 	private static final String TYPE_VALUE_KEYWORD = "keyword";
 	private static final String TYPE_VALUE_GEO_POINT = "geo_point";
 	private static final String TYPE_VALUE_COMPLETION = "completion";
@@ -102,40 +106,39 @@ public class MappingBuilder {
 	 * builds the Elasticsearch mapping for the given clazz.
 	 *
 	 * @return JSON string
-	 * @throws IOException
+	 * @throws ElasticsearchException on errors while building the mapping
 	 */
-	public String buildPropertyMapping(Class<?> clazz) throws IOException {
+	public String buildPropertyMapping(Class<?> clazz) throws ElasticsearchException {
 
-		ElasticsearchPersistentEntity<?> entity = elasticsearchConverter.getMappingContext()
-				.getRequiredPersistentEntity(clazz);
+		try {
+			ElasticsearchPersistentEntity<?> entity = elasticsearchConverter.getMappingContext()
+					.getRequiredPersistentEntity(clazz);
 
-		XContentBuilder builder = jsonBuilder().startObject().startObject(entity.getIndexType());
+			XContentBuilder builder = jsonBuilder().startObject();
 
-		// Dynamic templates
-		addDynamicTemplatesMapping(builder, entity);
+			// Dynamic templates
+			addDynamicTemplatesMapping(builder, entity);
 
-		// Parent
-		String parentType = entity.getParentType();
-		if (hasText(parentType)) {
-			builder.startObject(FIELD_PARENT).field(FIELD_PARAM_TYPE, parentType).endObject();
+			// Parent
+			String parentType = entity.getParentType();
+			if (hasText(parentType)) {
+				builder.startObject(FIELD_PARENT).field(FIELD_PARAM_TYPE, parentType).endObject();
+			}
+
+			mapEntity(builder, entity, true, "", false, FieldType.Auto, null, entity.findAnnotation(DynamicMapping.class));
+
+			builder.endObject() // root object
+					.close();
+
+			return builder.getOutputStream().toString();
+		} catch (MappingException | IOException e) {
+			throw new ElasticsearchException("could not build mapping", e);
 		}
-
-		// Properties
-		builder.startObject(FIELD_PROPERTIES);
-
-		mapEntity(builder, entity, true, "", false, FieldType.Auto, null);
-
-		builder.endObject() // FIELD_PROPERTIES
-				.endObject() // indexType
-				.endObject() // root object
-				.close();
-
-		return builder.getOutputStream().toString();
 	}
 
 	private void mapEntity(XContentBuilder builder, @Nullable ElasticsearchPersistentEntity entity, boolean isRootObject,
 			String nestedObjectFieldName, boolean nestedOrObjectField, FieldType fieldType,
-			@Nullable Field parentFieldAnnotation) throws IOException {
+			@Nullable Field parentFieldAnnotation, @Nullable DynamicMapping dynamicMapping) throws IOException {
 
 		boolean writeNestedProperties = !isRootObject && (isAnyPropertyAnnotatedWithField(entity) || nestedOrObjectField);
 		if (writeNestedProperties) {
@@ -146,14 +149,17 @@ public class MappingBuilder {
 
 			if (nestedOrObjectField && FieldType.Nested == fieldType && parentFieldAnnotation != null
 					&& parentFieldAnnotation.includeInParent()) {
-
 				builder.field("include_in_parent", parentFieldAnnotation.includeInParent());
 			}
-
-			builder.startObject(FIELD_PROPERTIES);
 		}
-		if (entity != null) {
 
+		if (dynamicMapping != null) {
+			builder.field(TYPE_DYNAMIC, dynamicMapping.value().name().toLowerCase());
+		}
+
+		builder.startObject(FIELD_PROPERTIES);
+
+		if (entity != null) {
 			entity.doWithProperties((PropertyHandler<ElasticsearchPersistentProperty>) property -> {
 				try {
 					if (property.isAnnotationPresent(Transient.class) || isInIgnoreFields(property, parentFieldAnnotation)) {
@@ -167,9 +173,12 @@ public class MappingBuilder {
 			});
 		}
 
+		builder.endObject();
+
 		if (writeNestedProperties) {
-			builder.endObject().endObject();
+			builder.endObject();
 		}
+
 	}
 
 	private void buildPropertyMapping(XContentBuilder builder, boolean isRootObject,
@@ -205,7 +214,7 @@ public class MappingBuilder {
 					: null;
 
 			mapEntity(builder, persistentEntity, false, property.getFieldName(), isNestedOrObjectProperty,
-					fieldAnnotation.type(), fieldAnnotation);
+					fieldAnnotation.type(), fieldAnnotation, property.findAnnotation(DynamicMapping.class));
 
 			if (isNestedOrObjectProperty) {
 				return;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2019 the original author or authors.
+ * Copyright 2014-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,23 +25,25 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.List;
 
-import org.elasticsearch.action.search.SearchPhaseExecutionException;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.IndexQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.elasticsearch.core.query.SearchQuery;
+import org.springframework.data.elasticsearch.junit.jupiter.ElasticsearchRestTemplateConfiguration;
+import org.springframework.data.elasticsearch.junit.jupiter.SpringIntegrationTest;
 import org.springframework.data.elasticsearch.utils.IndexInitializer;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * LogEntityTests
@@ -50,16 +52,22 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @author Mohsin Husen
  * @author Peter-Josef Meisch
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration("classpath:elasticsearch-template-test.xml")
+@SpringIntegrationTest
+@ContextConfiguration(classes = { LogEntityTests.Config.class })
 public class LogEntityTests {
 
-	@Autowired private ElasticsearchTemplate template;
+	@Configuration
+	@Import({ ElasticsearchRestTemplateConfiguration.class })
+	static class Config {}
 
-	@Before
+	private final IndexCoordinates index = IndexCoordinates.of("test-index-log-core").withTypes("test-log-type");
+	@Autowired private ElasticsearchOperations operations;
+	private IndexOperations indexOperations;
+
+	@BeforeEach
 	public void before() throws ParseException {
-
-		IndexInitializer.init(template, LogEntity.class);
+		indexOperations = operations.indexOps(LogEntity.class);
+		IndexInitializer.init(indexOperations);
 
 		SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 		IndexQuery indexQuery1 = new LogEntityBuilder("1").action("update").date(dateFormatter.parse("2013-10-18 18:01"))
@@ -74,39 +82,48 @@ public class LogEntityTests {
 		IndexQuery indexQuery4 = new LogEntityBuilder("4").action("update").date(dateFormatter.parse("2013-10-19 18:04"))
 				.code(2).ip("10.10.10.4").buildIndex();
 
-		template.bulkIndex(Arrays.asList(indexQuery1, indexQuery2, indexQuery3, indexQuery4));
-		template.refresh(LogEntity.class);
+		operations.bulkIndex(Arrays.asList(indexQuery1, indexQuery2, indexQuery3, indexQuery4), index);
+		indexOperations.refresh();
+	}
+
+	@AfterEach
+	void after() {
+		indexOperations.delete();
 	}
 
 	@Test // DATAES-66
 	public void shouldIndexGivenLogEntityWithIPFieldType() {
 
 		// when
-		SearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(termQuery("ip", "10.10.10.1")).build();
-		List<LogEntity> entities = template.queryForList(searchQuery, LogEntity.class);
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(termQuery("ip", "10.10.10.1")).build();
+		SearchHits<LogEntity> entities = operations.search(searchQuery, LogEntity.class, index);
 
 		// then
 		assertThat(entities).isNotNull().hasSize(1);
 	}
 
-	@Test(expected = SearchPhaseExecutionException.class) // DATAES-66
+	protected Class<? extends Exception> invalidIpExceptionClass() {
+		return DataAccessException.class;
+	}
+
+	@Test // DATAES-66
 	public void shouldThrowExceptionWhenInvalidIPGivenForSearchQuery() {
 
 		// when
-		SearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(termQuery("ip", "10.10.10")).build();
-		List<LogEntity> entities = template.queryForList(searchQuery, LogEntity.class);
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(termQuery("ip", "10.10.10")).build();
 
-		// then
-		assertThat(entities).isNotNull().hasSize(1);
+		assertThatThrownBy(() -> {
+			SearchHits<LogEntity> entities = operations.search(searchQuery, LogEntity.class, index);
+		}).isInstanceOf(invalidIpExceptionClass());
 	}
 
 	@Test // DATAES-66
 	public void shouldReturnLogsForGivenIPRanges() {
 
 		// when
-		SearchQuery searchQuery = new NativeSearchQueryBuilder()
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(rangeQuery("ip").from("10.10.10.1").to("10.10.10.3")).build();
-		List<LogEntity> entities = template.queryForList(searchQuery, LogEntity.class);
+		SearchHits<LogEntity> entities = operations.search(searchQuery, LogEntity.class, index);
 
 		// then
 		assertThat(entities).isNotNull().hasSize(3);
@@ -116,7 +133,7 @@ public class LogEntityTests {
 	 * Simple type to test facets
 	 */
 	@Data
-	@Document(indexName = "test-index-log-core", type = "test-log-type", shards = 1, replicas = 0, refreshInterval = "-1")
+	@Document(indexName = "test-index-log-core", replicas = 0, refreshInterval = "-1")
 	static class LogEntity {
 
 		private static final SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");

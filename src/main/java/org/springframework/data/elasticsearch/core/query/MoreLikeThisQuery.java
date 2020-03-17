@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,62 +15,47 @@
  */
 package org.springframework.data.elasticsearch.core.query;
 
-import static java.util.Collections.addAll;
+import static java.util.Collections.*;
 import static org.springframework.data.elasticsearch.core.query.AbstractQuery.*;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.data.domain.Pageable;
+import org.springframework.lang.Nullable;
 
 /**
  * MoreLikeThisQuery
  *
  * @author Rizwan Idrees
  * @author Mohsin Husen
+ * @author Peter-Josef Meisch
  */
 public class MoreLikeThisQuery {
 
-	private String id;
-	private String indexName;
-	private String type;
+	@Nullable private String id;
 	private List<String> searchIndices = new ArrayList<>();
 	private List<String> searchTypes = new ArrayList<>();
 	private List<String> fields = new ArrayList<>();
-	private String routing;
-	private Float percentTermsToMatch;
-	private Integer minTermFreq;
-	private Integer maxQueryTerms;
+	@Nullable private String routing;
+	@Nullable private Float percentTermsToMatch;
+	@Nullable private Integer minTermFreq;
+	@Nullable private Integer maxQueryTerms;
 	private List<String> stopWords = new ArrayList<>();
-	private Integer minDocFreq;
-	private Integer maxDocFreq;
-	private Integer minWordLen;
-	private Integer maxWordLen;
-	private Float boostTerms;
+	@Nullable private Integer minDocFreq;
+	@Nullable private Integer maxDocFreq;
+	@Nullable private Integer minWordLen;
+	@Nullable private Integer maxWordLen;
+	@Nullable private Float boostTerms;
 	private Pageable pageable = DEFAULT_PAGE;
 
+	@Nullable
 	public String getId() {
 		return id;
 	}
 
 	public void setId(String id) {
 		this.id = id;
-	}
-
-	public String getIndexName() {
-		return indexName;
-	}
-
-	public void setIndexName(String indexName) {
-		this.indexName = indexName;
-	}
-
-	public String getType() {
-		return type;
-	}
-
-	public void setType(String type) {
-		this.type = type;
 	}
 
 	public List<String> getSearchIndices() {
@@ -97,6 +82,7 @@ public class MoreLikeThisQuery {
 		addAll(this.fields, fields);
 	}
 
+	@Nullable
 	public String getRouting() {
 		return routing;
 	}
@@ -105,6 +91,7 @@ public class MoreLikeThisQuery {
 		this.routing = routing;
 	}
 
+	@Nullable
 	public Float getPercentTermsToMatch() {
 		return percentTermsToMatch;
 	}
@@ -113,6 +100,7 @@ public class MoreLikeThisQuery {
 		this.percentTermsToMatch = percentTermsToMatch;
 	}
 
+	@Nullable
 	public Integer getMinTermFreq() {
 		return minTermFreq;
 	}
@@ -121,6 +109,7 @@ public class MoreLikeThisQuery {
 		this.minTermFreq = minTermFreq;
 	}
 
+	@Nullable
 	public Integer getMaxQueryTerms() {
 		return maxQueryTerms;
 	}
@@ -137,6 +126,7 @@ public class MoreLikeThisQuery {
 		addAll(this.stopWords, stopWords);
 	}
 
+	@Nullable
 	public Integer getMinDocFreq() {
 		return minDocFreq;
 	}
@@ -145,6 +135,7 @@ public class MoreLikeThisQuery {
 		this.minDocFreq = minDocFreq;
 	}
 
+	@Nullable
 	public Integer getMaxDocFreq() {
 		return maxDocFreq;
 	}
@@ -153,6 +144,7 @@ public class MoreLikeThisQuery {
 		this.maxDocFreq = maxDocFreq;
 	}
 
+	@Nullable
 	public Integer getMinWordLen() {
 		return minWordLen;
 	}
@@ -161,6 +153,7 @@ public class MoreLikeThisQuery {
 		this.minWordLen = minWordLen;
 	}
 
+	@Nullable
 	public Integer getMaxWordLen() {
 		return maxWordLen;
 	}
@@ -169,6 +162,7 @@ public class MoreLikeThisQuery {
 		this.maxWordLen = maxWordLen;
 	}
 
+	@Nullable
 	public Float getBoostTerms() {
 		return boostTerms;
 	}

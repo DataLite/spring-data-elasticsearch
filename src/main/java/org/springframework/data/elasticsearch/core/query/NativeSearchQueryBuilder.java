@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import org.elasticsearch.search.collapse.CollapseBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.sort.SortBuilder;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.elasticsearch.core.facet.FacetRequest;
+import org.springframework.lang.Nullable;
 
 /**
  * NativeSearchQuery
@@ -43,31 +43,29 @@ import org.springframework.data.elasticsearch.core.facet.FacetRequest;
  * @author Jean-Baptiste Nizet
  * @author Martin Choraine
  * @author Farid Azaza
+ * @author Peter-Josef Meisch
  */
 public class NativeSearchQueryBuilder {
 
-	private QueryBuilder queryBuilder;
-	private QueryBuilder filterBuilder;
+	@Nullable private QueryBuilder queryBuilder;
+	@Nullable private QueryBuilder filterBuilder;
 	private List<ScriptField> scriptFields = new ArrayList<>();
 	private List<SortBuilder> sortBuilders = new ArrayList<>();
-	private List<FacetRequest> facetRequests = new ArrayList<>();
 	private List<AbstractAggregationBuilder> aggregationBuilders = new ArrayList<>();
-	private HighlightBuilder highlightBuilder;
-	private HighlightBuilder.Field[] highlightFields;
+	@Nullable private HighlightBuilder highlightBuilder;
+	@Nullable private HighlightBuilder.Field[] highlightFields;
 	private Pageable pageable = Pageable.unpaged();
-	private String[] indices;
-	private String[] types;
-	private String[] fields;
-	private SourceFilter sourceFilter;
-	private CollapseBuilder collapseBuilder;
-	private List<IndexBoost> indicesBoost;
+	@Nullable private String[] fields;
+	@Nullable private SourceFilter sourceFilter;
+	@Nullable private CollapseBuilder collapseBuilder;
+	@Nullable private List<IndexBoost> indicesBoost;
 	private float minScore;
 	private boolean trackScores;
-	private Collection<String> ids;
-	private String route;
-	private SearchType searchType;
-	private IndicesOptions indicesOptions;
-	private String preference;
+	@Nullable private Collection<String> ids;
+	@Nullable private String route;
+	@Nullable private SearchType searchType;
+	@Nullable private IndicesOptions indicesOptions;
+	@Nullable private String preference;
 
 	public NativeSearchQueryBuilder withQuery(QueryBuilder queryBuilder) {
 		this.queryBuilder = queryBuilder;
@@ -99,11 +97,6 @@ public class NativeSearchQueryBuilder {
 		return this;
 	}
 
-	public NativeSearchQueryBuilder withFacet(FacetRequest facetRequest) {
-		facetRequests.add(facetRequest);
-		return this;
-	}
-
 	public NativeSearchQueryBuilder withHighlightBuilder(HighlightBuilder highlightBuilder) {
 		this.highlightBuilder = highlightBuilder;
 		return this;
@@ -121,16 +114,6 @@ public class NativeSearchQueryBuilder {
 
 	public NativeSearchQueryBuilder withPageable(Pageable pageable) {
 		this.pageable = pageable;
-		return this;
-	}
-
-	public NativeSearchQueryBuilder withIndices(String... indices) {
-		this.indices = indices;
-		return this;
-	}
-
-	public NativeSearchQueryBuilder withTypes(String... types) {
-		this.types = types;
 		return this;
 	}
 
@@ -191,14 +174,6 @@ public class NativeSearchQueryBuilder {
 		nativeSearchQuery.setPageable(pageable);
 		nativeSearchQuery.setTrackScores(trackScores);
 
-		if (indices != null) {
-			nativeSearchQuery.addIndices(indices);
-		}
-
-		if (types != null) {
-			nativeSearchQuery.addTypes(types);
-		}
-
 		if (fields != null) {
 			nativeSearchQuery.addFields(fields);
 		}
@@ -217,10 +192,6 @@ public class NativeSearchQueryBuilder {
 
 		if (collapseBuilder != null) {
 			nativeSearchQuery.setCollapseBuilder(collapseBuilder);
-		}
-
-		if (!isEmpty(facetRequests)) {
-			nativeSearchQuery.setFacets(facetRequests);
 		}
 
 		if (!isEmpty(aggregationBuilders)) {

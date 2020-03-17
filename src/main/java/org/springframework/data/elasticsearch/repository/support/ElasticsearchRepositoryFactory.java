@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ import org.springframework.data.repository.query.QueryLookupStrategy;
 import org.springframework.data.repository.query.QueryLookupStrategy.Key;
 import org.springframework.data.repository.query.QueryMethodEvaluationContextProvider;
 import org.springframework.data.repository.query.RepositoryQuery;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -47,6 +48,7 @@ import org.springframework.util.Assert;
  * @author Mark Paluch
  * @author Christoph Strobl
  * @author Sascha Woo
+ * @author Peter-Josef Meisch
  */
 public class ElasticsearchRepositoryFactory extends RepositoryFactorySupport {
 
@@ -87,7 +89,7 @@ public class ElasticsearchRepositoryFactory extends RepositoryFactorySupport {
 	}
 
 	@Override
-	protected Optional<QueryLookupStrategy> getQueryLookupStrategy(Key key,
+	protected Optional<QueryLookupStrategy> getQueryLookupStrategy(@Nullable Key key,
 			QueryMethodEvaluationContextProvider evaluationContextProvider) {
 		return Optional.of(new ElasticsearchQueryLookupStrategy());
 	}
@@ -114,5 +116,10 @@ public class ElasticsearchRepositoryFactory extends RepositoryFactorySupport {
 			}
 			return new ElasticsearchPartQuery(queryMethod, elasticsearchOperations);
 		}
+	}
+
+	@Override
+	protected RepositoryMetadata getRepositoryMetadata(Class<?> repositoryInterface) {
+		return new ElasticsearchRepositoryMetadata(repositoryInterface);
 	}
 }

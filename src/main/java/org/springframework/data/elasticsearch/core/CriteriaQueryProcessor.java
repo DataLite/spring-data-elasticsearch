@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import org.apache.lucene.queryparser.flexible.standard.QueryParserUtil;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.springframework.data.elasticsearch.core.query.Criteria;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -41,12 +42,13 @@ import org.springframework.util.Assert;
  * @author Artur Konczak
  * @author Rasmus Faber-Espensen
  * @author James Bodkin
+ * @author Peter-Josef Meisch
  */
 class CriteriaQueryProcessor {
 
 	QueryBuilder createQueryFromCriteria(Criteria criteria) {
-		if (criteria == null)
-			return null;
+
+		Assert.notNull(criteria, "criteria must not be null");
 
 		List<QueryBuilder> shouldQueryBuilderList = new LinkedList<>();
 		List<QueryBuilder> mustNotQueryBuilderList = new LinkedList<>();
@@ -108,6 +110,7 @@ class CriteriaQueryProcessor {
 		return query;
 	}
 
+	@Nullable
 	private QueryBuilder createQueryFragmentForCriteria(Criteria chainedCriteria) {
 		if (chainedCriteria.getQueryCriteriaEntries().isEmpty())
 			return null;
@@ -134,29 +137,36 @@ class CriteriaQueryProcessor {
 		return query;
 	}
 
-	private QueryBuilder processCriteriaEntry(Criteria.CriteriaEntry entry,
-			/* OperationKey key, Object value,*/ String fieldName) {
-		Object value = entry.getValue();
-		if (value == null) {
-			return null;
-		}
+	@Nullable
+	private QueryBuilder processCriteriaEntry(Criteria.CriteriaEntry entry, String fieldName) {
 		OperationKey key = entry.getKey();
-		QueryBuilder query = null;
+		Object value = entry.getValue();
+
+		if (value == null) {
+
+			if (key == OperationKey.EXISTS) {
+				return existsQuery(fieldName);
+			} else {
+				return null;
+			}
+		}
 
 		String searchText = QueryParserUtil.escape(value.toString());
+
+		QueryBuilder query = null;
 
 		switch (key) {
 			case EQUALS:
 				query = queryStringQuery(searchText).field(fieldName).defaultOperator(AND);
 				break;
 			case CONTAINS:
-				query = queryStringQuery("*" + searchText + "*").field(fieldName).analyzeWildcard(true);
+				query = queryStringQuery('*' + searchText + '*').field(fieldName).analyzeWildcard(true);
 				break;
 			case STARTS_WITH:
-				query = queryStringQuery(searchText + "*").field(fieldName).analyzeWildcard(true);
+				query = queryStringQuery(searchText + '*').field(fieldName).analyzeWildcard(true);
 				break;
 			case ENDS_WITH:
-				query = queryStringQuery("*" + searchText).field(fieldName).analyzeWildcard(true);
+				query = queryStringQuery('*' + searchText).field(fieldName).analyzeWildcard(true);
 				break;
 			case EXPRESSION:
 				query = queryStringQuery(value.toString()).field(fieldName);

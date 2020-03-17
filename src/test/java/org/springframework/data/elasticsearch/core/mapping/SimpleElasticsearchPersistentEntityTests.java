@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,17 @@ package org.springframework.data.elasticsearch.core.mapping;
 
 import static org.assertj.core.api.Assertions.*;
 
-import java.beans.IntrospectionException;
-
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
+import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.Score;
 import org.springframework.data.mapping.MappingException;
 import org.springframework.data.mapping.model.Property;
 import org.springframework.data.mapping.model.SimpleTypeHolder;
 import org.springframework.data.util.ClassTypeInformation;
 import org.springframework.data.util.TypeInformation;
+import org.springframework.lang.Nullable;
 import org.springframework.util.ReflectionUtils;
 
 /**
@@ -34,25 +35,24 @@ import org.springframework.util.ReflectionUtils;
  * @author Mohsin Husen
  * @author Mark Paluch
  * @author Oliver Gierke
+ * @author Peter-Josef Meisch
  */
 public class SimpleElasticsearchPersistentEntityTests {
 
-	@Test(expected = MappingException.class)
-	public void shouldThrowExceptionGivenVersionPropertyIsNotLong() throws NoSuchFieldException, IntrospectionException {
+	@Test
+	public void shouldThrowExceptionGivenVersionPropertyIsNotLong() {
 		// given
 		TypeInformation typeInformation = ClassTypeInformation.from(EntityWithWrongVersionType.class);
 		SimpleElasticsearchPersistentEntity<EntityWithWrongVersionType> entity = new SimpleElasticsearchPersistentEntity<>(
 				typeInformation);
-
-		SimpleElasticsearchPersistentProperty persistentProperty = createProperty(entity, "version");
-
 		// when
-		entity.addPersistentProperty(persistentProperty);
+		assertThatThrownBy(() -> {
+			SimpleElasticsearchPersistentProperty persistentProperty = createProperty(entity, "version");
+		}).isInstanceOf(MappingException.class);
 	}
 
-	@Test(expected = MappingException.class)
-	public void shouldThrowExceptionGivenMultipleVersionPropertiesArePresent()
-			throws NoSuchFieldException, IntrospectionException {
+	@Test
+	public void shouldThrowExceptionGivenMultipleVersionPropertiesArePresent() {
 		// given
 		TypeInformation typeInformation = ClassTypeInformation.from(EntityWithMultipleVersionField.class);
 		SimpleElasticsearchPersistentEntity<EntityWithMultipleVersionField> entity = new SimpleElasticsearchPersistentEntity<>(
@@ -64,7 +64,9 @@ public class SimpleElasticsearchPersistentEntityTests {
 
 		entity.addPersistentProperty(persistentProperty1);
 		// when
-		entity.addPersistentProperty(persistentProperty2);
+		assertThatThrownBy(() -> {
+			entity.addPersistentProperty(persistentProperty2);
+		}).isInstanceOf(MappingException.class);
 	}
 
 	@Test // DATAES-462
@@ -78,6 +80,21 @@ public class SimpleElasticsearchPersistentEntityTests {
 				.withMessageContaining("second");
 	}
 
+	@Test
+	void shouldFindPropertiesByMappedName() {
+
+		SimpleElasticsearchMappingContext context = new SimpleElasticsearchMappingContext();
+		SimpleElasticsearchPersistentEntity<?> persistentEntity = context
+				.getRequiredPersistentEntity(FieldNameEntity.class);
+
+		ElasticsearchPersistentProperty persistentProperty = persistentEntity
+				.getPersistentPropertyWithFieldName("renamed-field");
+
+		assertThat(persistentProperty).isNotNull();
+		assertThat(persistentProperty.getName()).isEqualTo("renamedField");
+		assertThat(persistentProperty.getFieldName()).isEqualTo("renamed-field");
+	}
+
 	private static SimpleElasticsearchPersistentProperty createProperty(SimpleElasticsearchPersistentEntity<?> entity,
 			String field) {
 
@@ -87,10 +104,11 @@ public class SimpleElasticsearchPersistentEntityTests {
 
 	}
 
-	private class EntityWithWrongVersionType {
+	private static class EntityWithWrongVersionType {
 
-		@Version private String version;
+		@Nullable @Version private String version;
 
+		@Nullable
 		public String getVersion() {
 			return version;
 		}
@@ -100,11 +118,12 @@ public class SimpleElasticsearchPersistentEntityTests {
 		}
 	}
 
-	private class EntityWithMultipleVersionField {
+	private static class EntityWithMultipleVersionField {
 
-		@Version private Long version1;
-		@Version private Long version2;
+		@Nullable @Version private Long version1;
+		@Nullable @Version private Long version2;
 
+		@Nullable
 		public Long getVersion1() {
 			return version1;
 		}
@@ -113,6 +132,7 @@ public class SimpleElasticsearchPersistentEntityTests {
 			this.version1 = version1;
 		}
 
+		@Nullable
 		public Long getVersion2() {
 			return version2;
 		}
@@ -123,10 +143,14 @@ public class SimpleElasticsearchPersistentEntityTests {
 	}
 
 	// DATAES-462
-
 	static class TwoScoreProperties {
 
 		@Score float first;
 		@Score float second;
+	}
+
+	private static class FieldNameEntity {
+		@Nullable @Id private String id;
+		@Nullable @Field(name = "renamed-field") private String renamedField;
 	}
 }

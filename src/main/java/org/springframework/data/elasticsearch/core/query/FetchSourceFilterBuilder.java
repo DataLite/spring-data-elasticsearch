@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2019 the original author or authors.
+ * Copyright 2016-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,18 @@
  */
 package org.springframework.data.elasticsearch.core.query;
 
+import org.springframework.lang.Nullable;
+
 /**
  * SourceFilter builder for providing includes and excludes.
  *
  * @Author Jon Tsiros
+ * @author Peter-Josef Meisch
  */
 public class FetchSourceFilterBuilder {
 
-	private String[] includes;
-	private String[] excludes;
+	@Nullable private String[] includes;
+	@Nullable private String[] excludes;
 
 	public FetchSourceFilterBuilder withIncludes(String... includes) {
 		this.includes = includes;
@@ -36,10 +39,11 @@ public class FetchSourceFilterBuilder {
 	}
 
 	public SourceFilter build() {
-		if (includes == null) includes = new String[0];
-		if (excludes == null) excludes = new String[0];
+		if (includes == null)
+			includes = new String[0];
+		if (excludes == null)
+			excludes = new String[0];
 
-		SourceFilter sourceFilter = new FetchSourceFilter(includes, excludes);
-		return sourceFilter;
+		return new FetchSourceFilter(includes, excludes);
 	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 the original author or authors.
+ * Copyright 2019-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,6 +106,7 @@ public class ReactiveElasticsearchRepositoryFactory extends ReactiveRepositoryFa
 	 * (non-Javadoc)
 	 * @see org.springframework.data.repository.core.support.RepositoryFactorySupport#getEntityInformation(java.lang.Class)
 	 */
+	@Override
 	public <T, ID> ElasticsearchEntityInformation<T, ID> getEntityInformation(Class<T> domainClass) {
 		return getEntityInformation(domainClass, null);
 	}
@@ -115,9 +116,13 @@ public class ReactiveElasticsearchRepositoryFactory extends ReactiveRepositoryFa
 			@Nullable RepositoryInformation information) {
 
 		ElasticsearchPersistentEntity<?> entity = mappingContext.getRequiredPersistentEntity(domainClass);
+		return new MappingElasticsearchEntityInformation<>((ElasticsearchPersistentEntity<T>) entity,
+				entity.getIndexCoordinates(), entity.getVersionType());
+	}
 
-		return new MappingElasticsearchEntityInformation<>((ElasticsearchPersistentEntity<T>) entity, entity.getIndexName(),
-				entity.getIndexType(), entity.getVersionType());
+	@Override
+	protected RepositoryMetadata getRepositoryMetadata(Class<?> repositoryInterface) {
+		return new ReactiveElasticsearchRepositoryMetadata(repositoryInterface);
 	}
 
 	/**

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 the original author or authors.
+ * Copyright 2019-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,8 +31,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.domain.Page;
@@ -48,6 +48,7 @@ import org.springframework.data.projection.ProjectionFactory;
 import org.springframework.data.projection.SpelAwareProxyProjectionFactory;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.core.support.DefaultRepositoryMetadata;
+import org.springframework.lang.Nullable;
 
 /**
  * @author Christoph Strobl
@@ -58,7 +59,7 @@ public class ReactiveElasticsearchQueryMethodUnitTests {
 	public static final String INDEX_NAME = "test-index-person-reactive-repository-query";
 	SimpleElasticsearchMappingContext mappingContext;
 
-	@Before
+	@BeforeEach
 	public void setUp() {
 		mappingContext = new SimpleElasticsearchMappingContext();
 	}
@@ -71,31 +72,34 @@ public class ReactiveElasticsearchQueryMethodUnitTests {
 
 		assertThat(metadata.getJavaType()).isAssignableFrom(Person.class);
 		assertThat(metadata.getIndexName()).isEqualTo(INDEX_NAME);
-		assertThat(metadata.getIndexTypeName()).isEqualTo("user");
 	}
 
-	@Test(expected = IllegalArgumentException.class) // DATAES-519
+	@Test // DATAES-519
 	public void rejectsNullMappingContext() throws Exception {
 
 		Method method = PersonRepository.class.getMethod("findByName", String.class);
 
-		new ReactiveElasticsearchQueryMethod(method, new DefaultRepositoryMetadata(PersonRepository.class),
-				new SpelAwareProxyProjectionFactory(), null);
+		assertThatThrownBy(() -> new ReactiveElasticsearchQueryMethod(method,
+				new DefaultRepositoryMetadata(PersonRepository.class), new SpelAwareProxyProjectionFactory(), null))
+						.isInstanceOf(IllegalArgumentException.class);
 	}
 
-	@Test(expected = IllegalStateException.class) // DATAES-519
-	public void rejectsMonoPageableResult() throws Exception {
-		queryMethod(PersonRepository.class, "findMonoByName", String.class, Pageable.class);
+	@Test // DATAES-519
+	public void rejectsMonoPageableResult() {
+		assertThatThrownBy(() -> queryMethod(PersonRepository.class, "findMonoByName", String.class, Pageable.class))
+				.isInstanceOf(IllegalStateException.class);
 	}
 
-	@Test(expected = InvalidDataAccessApiUsageException.class) // DATAES-519
-	public void throwsExceptionOnWrappedPage() throws Exception {
-		queryMethod(PersonRepository.class, "findMonoPageByName", String.class, Pageable.class);
+	@Test // DATAES-519
+	public void throwsExceptionOnWrappedPage() {
+		assertThatThrownBy(() -> queryMethod(PersonRepository.class, "findMonoPageByName", String.class, Pageable.class))
+				.isInstanceOf(InvalidDataAccessApiUsageException.class);
 	}
 
-	@Test(expected = InvalidDataAccessApiUsageException.class) // DATAES-519
-	public void throwsExceptionOnWrappedSlice() throws Exception {
-		queryMethod(PersonRepository.class, "findMonoSliceByName", String.class, Pageable.class);
+	@Test // DATAES-519
+	public void throwsExceptionOnWrappedSlice() {
+		assertThatThrownBy(() -> queryMethod(PersonRepository.class, "findMonoSliceByName", String.class, Pageable.class))
+				.isInstanceOf(InvalidDataAccessApiUsageException.class);
 	}
 
 	@Test // DATAES-519
@@ -146,17 +150,18 @@ public class ReactiveElasticsearchQueryMethodUnitTests {
 	 * @author Artur Konczak
 	 */
 
-	@Document(indexName = INDEX_NAME, type = "user", shards = 1, replicas = 0, refreshInterval = "-1")
+	@Document(indexName = INDEX_NAME, replicas = 0, refreshInterval = "-1")
 	static class Person {
 
-		@Id private String id;
+		@Nullable @Id private String id;
 
-		private String name;
+		@Nullable private String name;
 
-		@Field(type = FieldType.Nested) private List<Car> car;
+		@Nullable @Field(type = FieldType.Nested) private List<Car> car;
 
-		@Field(type = FieldType.Nested, includeInParent = true) private List<Book> books;
+		@Nullable @Field(type = FieldType.Nested, includeInParent = true) private List<Book> books;
 
+		@Nullable
 		public String getId() {
 			return id;
 		}
@@ -165,6 +170,7 @@ public class ReactiveElasticsearchQueryMethodUnitTests {
 			this.id = id;
 		}
 
+		@Nullable
 		public String getName() {
 			return name;
 		}
@@ -173,6 +179,7 @@ public class ReactiveElasticsearchQueryMethodUnitTests {
 			this.name = name;
 		}
 
+		@Nullable
 		public List<Car> getCar() {
 			return car;
 		}
@@ -181,6 +188,7 @@ public class ReactiveElasticsearchQueryMethodUnitTests {
 			this.car = car;
 		}
 
+		@Nullable
 		public List<Book> getBooks() {
 			return books;
 		}
@@ -200,8 +208,7 @@ public class ReactiveElasticsearchQueryMethodUnitTests {
 	@NoArgsConstructor
 	@AllArgsConstructor
 	@Builder
-	@Document(indexName = "test-index-book-reactive-repository-query", type = "book", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-book-reactive-repository-query", replicas = 0, refreshInterval = "-1")
 	static class Book {
 
 		@Id private String id;
@@ -251,9 +258,10 @@ public class ReactiveElasticsearchQueryMethodUnitTests {
 	 */
 	static class Author {
 
-		private String id;
-		private String name;
+		@Nullable private String id;
+		@Nullable private String name;
 
+		@Nullable
 		public String getId() {
 			return id;
 		}
@@ -262,6 +270,7 @@ public class ReactiveElasticsearchQueryMethodUnitTests {
 			this.id = id;
 		}
 
+		@Nullable
 		public String getName() {
 			return name;
 		}

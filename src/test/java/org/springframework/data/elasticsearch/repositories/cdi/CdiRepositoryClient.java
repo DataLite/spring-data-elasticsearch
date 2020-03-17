@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2019 the original author or authors.
+ * Copyright 2014-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,21 @@ package org.springframework.data.elasticsearch.repositories.cdi;
 
 import javax.inject.Inject;
 
+import org.springframework.lang.Nullable;
+
 /**
  * @author Mohsin Husen
  * @author Oliver Gierke
  * @author Mark Paluch
+ * @author Peter-Josef Meisch
  */
 class CdiRepositoryClient {
 
-	private CdiProductRepository repository;
-	private SamplePersonRepository samplePersonRepository;
-	private QualifiedProductRepository qualifiedProductRepository;
+	@Nullable private CdiProductRepository repository;
+	@Nullable private SamplePersonRepository samplePersonRepository;
+	@Nullable private QualifiedProductRepository qualifiedProductRepository;
 
+	@Nullable
 	public CdiProductRepository getRepository() {
 		return repository;
 	}
@@ -37,6 +41,7 @@ class CdiRepositoryClient {
 		this.repository = repository;
 	}
 
+	@Nullable
 	public SamplePersonRepository getSamplePersonRepository() {
 		return samplePersonRepository;
 	}
@@ -46,6 +51,7 @@ class CdiRepositoryClient {
 		this.samplePersonRepository = samplePersonRepository;
 	}
 
+	@Nullable
 	public QualifiedProductRepository getQualifiedProductRepository() {
 		return qualifiedProductRepository;
 	}

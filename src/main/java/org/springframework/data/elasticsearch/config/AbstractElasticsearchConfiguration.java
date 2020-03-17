@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 the original author or authors.
+ * Copyright 2018-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
-import org.springframework.data.elasticsearch.core.ResultsMapper;
-import org.springframework.data.elasticsearch.core.convert.MappingElasticsearchConverter;
+import org.springframework.data.elasticsearch.core.convert.ElasticsearchConverter;
 
 /**
  * @author Christoph Strobl
@@ -45,8 +44,7 @@ public abstract class AbstractElasticsearchConfiguration extends ElasticsearchCo
 	 * @return never {@literal null}.
 	 */
 	@Bean(name = { "elasticsearchOperations", "elasticsearchTemplate" })
-	public ElasticsearchOperations elasticsearchOperations(MappingElasticsearchConverter mappingElasticsearchConverter,
-                                                           ResultsMapper resultsMapper) {
-		return new ElasticsearchRestTemplate(elasticsearchClient(), mappingElasticsearchConverter, resultsMapper);
+	public ElasticsearchOperations elasticsearchOperations(ElasticsearchConverter elasticsearchConverter) {
+		return new ElasticsearchRestTemplate(elasticsearchClient(), elasticsearchConverter);
 	}
 }

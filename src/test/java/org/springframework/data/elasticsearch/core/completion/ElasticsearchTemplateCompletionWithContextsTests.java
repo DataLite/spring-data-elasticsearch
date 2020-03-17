@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,32 +33,56 @@ import org.elasticsearch.search.suggest.completion.CompletionSuggestion;
 import org.elasticsearch.search.suggest.completion.CompletionSuggestionBuilder;
 import org.elasticsearch.search.suggest.completion.context.CategoryQueryContext;
 import org.elasticsearch.search.suggest.completion.context.ContextMapping;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.CompletionContext;
 import org.springframework.data.elasticsearch.annotations.CompletionField;
 import org.springframework.data.elasticsearch.annotations.Document;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.AbstractElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.IndexOperations;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.IndexQuery;
+import org.springframework.data.elasticsearch.junit.jupiter.ElasticsearchRestTemplateConfiguration;
+import org.springframework.data.elasticsearch.junit.jupiter.SpringIntegrationTest;
 import org.springframework.data.elasticsearch.utils.IndexInitializer;
+import org.springframework.lang.Nullable;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * @author Robert Gruendler
  * @author Peter-Josef Meisch
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration("classpath:elasticsearch-template-test.xml")
+@SpringIntegrationTest
+@ContextConfiguration(classes = { ElasticsearchTemplateCompletionWithContextsTests.Config.class })
 public class ElasticsearchTemplateCompletionWithContextsTests {
 
-	@Autowired private ElasticsearchTemplate elasticsearchTemplate;
+	@Configuration
+	@Import({ ElasticsearchRestTemplateConfiguration.class })
+	static class Config {}
+
+	@Autowired private ElasticsearchOperations operations;
+	private IndexOperations indexOperations;
+
+	@BeforeEach
+	void setup() {
+		indexOperations = operations.indexOps(ContextCompletionEntity.class);
+		indexOperations.delete();
+	}
+
+	@AfterEach
+	void after() {
+		indexOperations.delete();
+	}
 
 	private void loadContextCompletionObjectEntities() {
 
-		IndexInitializer.init(elasticsearchTemplate, ContextCompletionEntity.class);
+		IndexInitializer.init(indexOperations);
 
 		NonDocumentEntity nonDocumentEntity = new NonDocumentEntity();
 		nonDocumentEntity.setSomeField1("foo");
@@ -86,19 +110,9 @@ public class ElasticsearchTemplateCompletionWithContextsTests {
 		indexQueries.add(new ContextCompletionEntityBuilder("4").name("Artur Konczak")
 				.suggest(new String[] { "Artur", "Konczak" }, context4).buildIndex());
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(ContextCompletionEntity.class);
-	}
-
-	@Test
-	public void shouldPutMappingForGivenEntity() throws Exception {
-
-		// given
-		Class<?> entity = ContextCompletionEntity.class;
-		elasticsearchTemplate.createIndex(entity);
-
-		// when
-		assertThat(elasticsearchTemplate.putMapping(entity)).isTrue();
+		operations.bulkIndex(indexQueries,
+				IndexCoordinates.of("test-index-context-completion").withTypes("context-completion-type"));
+		operations.indexOps(ContextCompletionEntity.class).refresh();
 	}
 
 	@Test // DATAES-536
@@ -121,9 +135,9 @@ public class ElasticsearchTemplateCompletionWithContextsTests {
 		((CompletionSuggestionBuilder) completionSuggestionFuzzyBuilder).contexts(contextMap);
 
 		// when
-		SearchResponse suggestResponse = elasticsearchTemplate.suggest(
+		SearchResponse suggestResponse = ((AbstractElasticsearchTemplate) operations).suggest(
 				new SuggestBuilder().addSuggestion("test-suggest", completionSuggestionFuzzyBuilder),
-				ContextCompletionEntity.class);
+				IndexCoordinates.of("test-index-context-completion").withTypes("context-completion-type"));
 		assertThat(suggestResponse.getSuggest()).isNotNull();
 		CompletionSuggestion completionSuggestion = suggestResponse.getSuggest().getSuggestion("test-suggest");
 		List<CompletionSuggestion.Entry.Option> options = completionSuggestion.getEntries().get(0).getOptions();
@@ -153,9 +167,9 @@ public class ElasticsearchTemplateCompletionWithContextsTests {
 		((CompletionSuggestionBuilder) completionSuggestionFuzzyBuilder).contexts(contextMap);
 
 		// when
-		SearchResponse suggestResponse = elasticsearchTemplate.suggest(
+		SearchResponse suggestResponse = ((AbstractElasticsearchTemplate) operations).suggest(
 				new SuggestBuilder().addSuggestion("test-suggest", completionSuggestionFuzzyBuilder),
-				ContextCompletionEntity.class);
+				IndexCoordinates.of("test-index-context-completion").withTypes("context-completion-type"));
 		assertThat(suggestResponse.getSuggest()).isNotNull();
 		CompletionSuggestion completionSuggestion = suggestResponse.getSuggest().getSuggestion("test-suggest");
 		List<CompletionSuggestion.Entry.Option> options = completionSuggestion.getEntries().get(0).getOptions();
@@ -185,9 +199,9 @@ public class ElasticsearchTemplateCompletionWithContextsTests {
 		((CompletionSuggestionBuilder) completionSuggestionFuzzyBuilder).contexts(contextMap);
 
 		// when
-		SearchResponse suggestResponse = elasticsearchTemplate.suggest(
+		SearchResponse suggestResponse = ((AbstractElasticsearchTemplate) operations).suggest(
 				new SuggestBuilder().addSuggestion("test-suggest", completionSuggestionFuzzyBuilder),
-				ContextCompletionEntity.class);
+				IndexCoordinates.of("test-index-context-completion").withTypes("context-completion-type"));
 		assertThat(suggestResponse.getSuggest()).isNotNull();
 		CompletionSuggestion completionSuggestion = suggestResponse.getSuggest().getSuggestion("test-suggest");
 		List<CompletionSuggestion.Entry.Option> options = completionSuggestion.getEntries().get(0).getOptions();
@@ -204,10 +218,11 @@ public class ElasticsearchTemplateCompletionWithContextsTests {
 	 */
 	static class NonDocumentEntity {
 
-		@Id private String someId;
-		private String someField1;
-		private String someField2;
+		@Nullable @Id private String someId;
+		@Nullable private String someField1;
+		@Nullable private String someField2;
 
+		@Nullable
 		public String getSomeField1() {
 			return someField1;
 		}
@@ -216,6 +231,7 @@ public class ElasticsearchTemplateCompletionWithContextsTests {
 			this.someField1 = someField1;
 		}
 
+		@Nullable
 		public String getSomeField2() {
 			return someField2;
 		}
@@ -229,15 +245,14 @@ public class ElasticsearchTemplateCompletionWithContextsTests {
 	 * @author Mewes Kochheim
 	 * @author Robert Gruendler
 	 */
-	@Document(indexName = "test-index-context-completion", type = "context-completion-type", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-context-completion", replicas = 0, refreshInterval = "-1")
 	static class ContextCompletionEntity {
 
 		public static final String LANGUAGE_CATEGORY = "language";
-		@Id private String id;
-		private String name;
+		@Nullable @Id private String id;
+		@Nullable private String name;
 
-		@CompletionField(maxInputLength = 100, contexts = {
+		@Nullable @CompletionField(maxInputLength = 100, contexts = {
 				@CompletionContext(name = LANGUAGE_CATEGORY, type = ContextMapping.Type.CATEGORY) }) private Completion suggest;
 
 		private ContextCompletionEntity() {}
@@ -246,6 +261,7 @@ public class ElasticsearchTemplateCompletionWithContextsTests {
 			this.id = id;
 		}
 
+		@Nullable
 		public String getId() {
 			return id;
 		}
@@ -254,6 +270,7 @@ public class ElasticsearchTemplateCompletionWithContextsTests {
 			this.id = id;
 		}
 
+		@Nullable
 		public String getName() {
 			return name;
 		}
@@ -262,6 +279,7 @@ public class ElasticsearchTemplateCompletionWithContextsTests {
 			this.name = name;
 		}
 
+		@Nullable
 		public Completion getSuggest() {
 			return suggest;
 		}

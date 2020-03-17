@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,17 +26,24 @@ import org.elasticsearch.search.suggest.SuggestBuilder;
 import org.elasticsearch.search.suggest.SuggestBuilders;
 import org.elasticsearch.search.suggest.SuggestionBuilder;
 import org.elasticsearch.search.suggest.completion.CompletionSuggestion;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.CompletionField;
 import org.springframework.data.elasticsearch.annotations.Document;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.AbstractElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.IndexQuery;
+import org.springframework.data.elasticsearch.junit.jupiter.ElasticsearchRestTemplateConfiguration;
+import org.springframework.data.elasticsearch.junit.jupiter.SpringIntegrationTest;
 import org.springframework.data.elasticsearch.utils.IndexInitializer;
+import org.springframework.lang.Nullable;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * @author Rizwan Idrees
@@ -46,15 +53,29 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @author Mewes Kochheim
  * @author Peter-Josef Meisch
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration("classpath:elasticsearch-template-test.xml")
+@SpringIntegrationTest
+@ContextConfiguration(classes = { ElasticsearchTemplateCompletionTests.Config.class })
 public class ElasticsearchTemplateCompletionTests {
 
-	@Autowired private ElasticsearchTemplate elasticsearchTemplate;
+	@Configuration
+	@Import({ ElasticsearchRestTemplateConfiguration.class })
+	static class Config {}
+
+	@Autowired private ElasticsearchOperations operations;
+
+	@BeforeEach
+	private void setup() {
+		IndexInitializer.init(operations.indexOps(CompletionEntity.class));
+		IndexInitializer.init(operations.indexOps(AnnotatedCompletionEntity.class));
+	}
+
+	@AfterEach
+	void after() {
+		operations.indexOps(CompletionEntity.class).delete();
+		operations.indexOps(AnnotatedCompletionEntity.class).delete();
+	}
 
 	private void loadCompletionObjectEntities() {
-
-		IndexInitializer.init(elasticsearchTemplate, CompletionEntity.class);
 
 		List<IndexQuery> indexQueries = new ArrayList<>();
 		indexQueries.add(
@@ -66,13 +87,12 @@ public class ElasticsearchTemplateCompletionTests {
 		indexQueries.add(new CompletionEntityBuilder("4").name("Artur Konczak").suggest(new String[] { "Artur", "Konczak" })
 				.buildIndex());
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(CompletionEntity.class);
+		IndexCoordinates index = IndexCoordinates.of("test-index-core-completion");
+		operations.bulkIndex(indexQueries, index);
+		operations.indexOps(CompletionEntity.class).refresh();
 	}
 
 	private void loadAnnotatedCompletionObjectEntities() {
-
-		IndexInitializer.init(elasticsearchTemplate, AnnotatedCompletionEntity.class);
 
 		NonDocumentEntity nonDocumentEntity = new NonDocumentEntity();
 		nonDocumentEntity.setSomeField1("foo");
@@ -88,13 +108,12 @@ public class ElasticsearchTemplateCompletionTests {
 		indexQueries.add(new AnnotatedCompletionEntityBuilder("4").name("Artur Konczak")
 				.suggest(new String[] { "Artur", "Konczak" }).buildIndex());
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(AnnotatedCompletionEntity.class);
+		operations.bulkIndex(indexQueries,
+				IndexCoordinates.of("test-index-annotated-completion").withTypes("annotated-completion-type"));
+		operations.indexOps(AnnotatedCompletionEntity.class).refresh();
 	}
 
 	private void loadAnnotatedCompletionObjectEntitiesWithWeights() {
-
-		IndexInitializer.init(elasticsearchTemplate, AnnotatedCompletionEntity.class);
 
 		List<IndexQuery> indexQueries = new ArrayList<>();
 		indexQueries.add(new AnnotatedCompletionEntityBuilder("1").name("Mewes Kochheim1")
@@ -106,19 +125,9 @@ public class ElasticsearchTemplateCompletionTests {
 		indexQueries.add(new AnnotatedCompletionEntityBuilder("4").name("Mewes Kochheim4")
 				.suggest(new String[] { "Mewes Kochheim4" }, Integer.MAX_VALUE).buildIndex());
 
-		elasticsearchTemplate.bulkIndex(indexQueries);
-		elasticsearchTemplate.refresh(AnnotatedCompletionEntity.class);
-	}
-
-	@Test
-	public void shouldPutMappingForGivenEntity() throws Exception {
-
-		// given
-		Class entity = CompletionEntity.class;
-		elasticsearchTemplate.createIndex(entity);
-
-		// when
-		assertThat(elasticsearchTemplate.putMapping(entity)).isTrue();
+		operations.bulkIndex(indexQueries,
+				IndexCoordinates.of("test-index-annotated-completion").withTypes("annotated-completion-type"));
+		operations.indexOps(AnnotatedCompletionEntity.class).refresh();
 	}
 
 	@Test
@@ -131,8 +140,9 @@ public class ElasticsearchTemplateCompletionTests {
 				Fuzziness.AUTO);
 
 		// when
-		SearchResponse suggestResponse = elasticsearchTemplate.suggest(
-				new SuggestBuilder().addSuggestion("test-suggest", completionSuggestionFuzzyBuilder), CompletionEntity.class);
+		SearchResponse suggestResponse = ((AbstractElasticsearchTemplate) operations).suggest(
+				new SuggestBuilder().addSuggestion("test-suggest", completionSuggestionFuzzyBuilder),
+				IndexCoordinates.of("test-index-core-completion").withTypes("completion-type"));
 		CompletionSuggestion completionSuggestion = suggestResponse.getSuggest().getSuggestion("test-suggest");
 		List<CompletionSuggestion.Entry.Option> options = completionSuggestion.getEntries().get(0).getOptions();
 
@@ -140,6 +150,13 @@ public class ElasticsearchTemplateCompletionTests {
 		assertThat(options).hasSize(2);
 		assertThat(options.get(0).getText().string()).isIn("Marchand", "Mohsin");
 		assertThat(options.get(1).getText().string()).isIn("Marchand", "Mohsin");
+	}
+
+	@Test // DATAES-754
+	void shouldRetrieveEntityWithCompletion() {
+		loadCompletionObjectEntities();
+		IndexCoordinates index = IndexCoordinates.of("test-index-core-completion");
+		operations.get("1", CompletionEntity.class, index);
 	}
 
 	@Test
@@ -151,8 +168,9 @@ public class ElasticsearchTemplateCompletionTests {
 				Fuzziness.AUTO);
 
 		// when
-		SearchResponse suggestResponse = elasticsearchTemplate.suggest(
-				new SuggestBuilder().addSuggestion("test-suggest", completionSuggestionFuzzyBuilder), CompletionEntity.class);
+		SearchResponse suggestResponse = ((AbstractElasticsearchTemplate) operations).suggest(
+				new SuggestBuilder().addSuggestion("test-suggest", completionSuggestionFuzzyBuilder),
+				IndexCoordinates.of("test-index-annotated-completion").withTypes("annotated-completion-type"));
 		CompletionSuggestion completionSuggestion = suggestResponse.getSuggest().getSuggestion("test-suggest");
 		List<CompletionSuggestion.Entry.Option> options = completionSuggestion.getEntries().get(0).getOptions();
 
@@ -171,9 +189,9 @@ public class ElasticsearchTemplateCompletionTests {
 				Fuzziness.AUTO);
 
 		// when
-		SearchResponse suggestResponse = elasticsearchTemplate.suggest(
+		SearchResponse suggestResponse = ((AbstractElasticsearchTemplate) operations).suggest(
 				new SuggestBuilder().addSuggestion("test-suggest", completionSuggestionFuzzyBuilder),
-				AnnotatedCompletionEntity.class);
+				IndexCoordinates.of("test-index-annotated-completion").withTypes("annotated-completion-type"));
 		CompletionSuggestion completionSuggestion = suggestResponse.getSuggest().getSuggestion("test-suggest");
 		List<CompletionSuggestion.Entry.Option> options = completionSuggestion.getEntries().get(0).getOptions();
 
@@ -206,10 +224,11 @@ public class ElasticsearchTemplateCompletionTests {
 	 */
 	static class NonDocumentEntity {
 
-		@Id private String someId;
-		private String someField1;
-		private String someField2;
+		@Nullable @Id private String someId;
+		@Nullable private String someField1;
+		@Nullable private String someField2;
 
+		@Nullable
 		public String getSomeField1() {
 			return someField1;
 		}
@@ -218,6 +237,7 @@ public class ElasticsearchTemplateCompletionTests {
 			this.someField1 = someField1;
 		}
 
+		@Nullable
 		public String getSomeField2() {
 			return someField2;
 		}
@@ -230,15 +250,14 @@ public class ElasticsearchTemplateCompletionTests {
 	/**
 	 * @author Mewes Kochheim
 	 */
-	@Document(indexName = "test-index-core-completion", type = "completion-type", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-core-completion", replicas = 0, refreshInterval = "-1")
 	static class CompletionEntity {
 
-		@Id private String id;
+		@Nullable @Id private String id;
 
-		private String name;
+		@Nullable private String name;
 
-		@CompletionField(maxInputLength = 100) private Completion suggest;
+		@Nullable @CompletionField(maxInputLength = 100) private Completion suggest;
 
 		private CompletionEntity() {}
 
@@ -246,6 +265,7 @@ public class ElasticsearchTemplateCompletionTests {
 			this.id = id;
 		}
 
+		@Nullable
 		public String getId() {
 			return id;
 		}
@@ -254,6 +274,7 @@ public class ElasticsearchTemplateCompletionTests {
 			this.id = id;
 		}
 
+		@Nullable
 		public String getName() {
 			return name;
 		}
@@ -262,6 +283,7 @@ public class ElasticsearchTemplateCompletionTests {
 			this.name = name;
 		}
 
+		@Nullable
 		public Completion getSuggest() {
 			return suggest;
 		}
@@ -314,14 +336,12 @@ public class ElasticsearchTemplateCompletionTests {
 	/**
 	 * @author Mewes Kochheim
 	 */
-	@Document(indexName = "test-index-annotated-completion", type = "annotated-completion-type", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-annotated-completion", replicas = 0, refreshInterval = "-1")
 	static class AnnotatedCompletionEntity {
 
-		@Id private String id;
-		private String name;
-
-		@CompletionField(maxInputLength = 100) private Completion suggest;
+		@Nullable @Id private String id;
+		@Nullable private String name;
+		@Nullable @CompletionField(maxInputLength = 100) private Completion suggest;
 
 		private AnnotatedCompletionEntity() {}
 
@@ -329,6 +349,7 @@ public class ElasticsearchTemplateCompletionTests {
 			this.id = id;
 		}
 
+		@Nullable
 		public String getId() {
 			return id;
 		}
@@ -337,6 +358,7 @@ public class ElasticsearchTemplateCompletionTests {
 			this.id = id;
 		}
 
+		@Nullable
 		public String getName() {
 			return name;
 		}
@@ -345,6 +367,7 @@ public class ElasticsearchTemplateCompletionTests {
 			this.name = name;
 		}
 
+		@Nullable
 		public Completion getSuggest() {
 			return suggest;
 		}

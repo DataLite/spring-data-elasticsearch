@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,9 +30,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
@@ -43,10 +46,20 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Sort.Order;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.Highlight;
+import org.springframework.data.elasticsearch.annotations.HighlightField;
 import org.springframework.data.elasticsearch.annotations.Query;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.IndexOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.SearchPage;
 import org.springframework.data.elasticsearch.core.geo.GeoBox;
 import org.springframework.data.elasticsearch.core.geo.GeoPoint;
+import org.springframework.data.elasticsearch.core.query.GeoDistanceOrder;
+import org.springframework.data.elasticsearch.junit.jupiter.SpringIntegrationTest;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
+import org.springframework.data.elasticsearch.utils.IndexInitializer;
 import org.springframework.data.geo.Box;
 import org.springframework.data.geo.Distance;
 import org.springframework.data.geo.Metrics;
@@ -62,11 +75,26 @@ import org.springframework.data.geo.Point;
  * @author Peter-Josef Meisch
  * @author Rasmus Faber-Espensen
  */
+@SpringIntegrationTest
 public abstract class CustomMethodRepositoryBaseTests {
 
 	@Autowired private SampleCustomMethodRepository repository;
 
 	@Autowired private SampleStreamingCustomMethodRepository streamingRepository;
+
+	@Autowired ElasticsearchOperations operations;
+	private IndexOperations indexOperations;
+
+	@BeforeEach
+	public void before() {
+		indexOperations = operations.indexOps(SampleEntity.class);
+		IndexInitializer.init(indexOperations);
+	}
+
+	@AfterEach
+	void after() {
+		indexOperations.delete();
+	}
 
 	@Test
 	public void shouldExecuteCustomMethod() {
@@ -358,7 +386,7 @@ public abstract class CustomMethodRepositoryBaseTests {
 		List<SampleEntity> list = repository.findByKeywordIn(keywords);
 
 		// then
-        assertThat(list).hasSize(1);
+		assertThat(list).hasSize(1);
 		assertThat(list.get(0).getId()).isEqualTo(documentId1);
 	}
 
@@ -1331,6 +1359,144 @@ public abstract class CustomMethodRepositoryBaseTests {
 		assertThat(stream.count()).isEqualTo(10L);
 	}
 
+	@Test // DATAES-672
+	void streamMethodShouldNotReturnSearchHits() {
+		// given
+		List<SampleEntity> entities = createSampleEntities("abc", 2);
+		repository.saveAll(entities);
+
+		// when
+		Stream<SampleEntity> stream = streamingRepository.findByType("abc");
+
+		// then
+		assertThat(stream).isNotNull();
+		stream.forEach(o -> assertThat(o).isInstanceOf(SampleEntity.class));
+	}
+
+	@Test // DATAES-717
+	void shouldReturnSearchHits() {
+		List<SampleEntity> entities = createSampleEntities("abc", 20);
+		repository.saveAll(entities);
+
+		// when
+		SearchHits<SampleEntity> searchHits = repository.queryByType("abc");
+
+		assertThat(searchHits.getTotalHits()).isEqualTo(20);
+	}
+
+	@Test // DATAES-717
+	void shouldReturnSearchHitList() {
+		List<SampleEntity> entities = createSampleEntities("abc", 20);
+		repository.saveAll(entities);
+
+		// when
+		List<SearchHit<SampleEntity>> searchHitList = repository.queryByMessage("Message");
+
+		assertThat(searchHitList).hasSize(20);
+	}
+
+	@Test // DATAES-717
+	void shouldReturnSearchHitStream() {
+		List<SampleEntity> entities = createSampleEntities("abc", 20);
+		repository.saveAll(entities);
+
+		// when
+		Stream<SearchHit<SampleEntity>> searchHitStream = repository.readByMessage("Message");
+
+		List<SearchHit<SampleEntity>> searchHitList = searchHitStream //
+				.peek(searchHit -> assertThat(searchHit.getContent().getType()).isEqualTo("abc")) //
+				.collect(Collectors.toList());
+		assertThat(searchHitList).hasSize(20);
+	}
+
+	@Test // DATAES-717
+	void shouldReturnSearchHitsForStringQuery() {
+		List<SampleEntity> entities = createSampleEntities("abc", 20);
+		repository.saveAll(entities);
+
+		// when
+		SearchHits<SampleEntity> searchHits = repository.queryByString("abc");
+
+		assertThat(searchHits.getTotalHits()).isEqualTo(20);
+	}
+
+	@Test // DATAES-372
+	void shouldReturnHighlightsOnAnnotatedMethod() {
+		List<SampleEntity> entities = createSampleEntities("abc", 2);
+		repository.saveAll(entities);
+
+		// when
+		SearchHits<SampleEntity> searchHits = repository.queryByType("abc");
+
+		assertThat(searchHits.getTotalHits()).isEqualTo(2);
+		SearchHit<SampleEntity> searchHit = searchHits.getSearchHit(0);
+		assertThat(searchHit.getHighlightField("type")).hasSize(1).contains("<em>abc</em>");
+	}
+
+	@Test // DATAES-372
+	void shouldReturnHighlightsOnAnnotatedStringQueryMethod() {
+		List<SampleEntity> entities = createSampleEntities("abc", 2);
+		repository.saveAll(entities);
+
+		// when
+		SearchHits<SampleEntity> searchHits = repository.queryByString("abc");
+
+		assertThat(searchHits.getTotalHits()).isEqualTo(2);
+		SearchHit<SampleEntity> searchHit = searchHits.getSearchHit(0);
+		assertThat(searchHit.getHighlightField("type")).hasSize(1).contains("<em>abc</em>");
+	}
+
+	@Test // DATAES-734
+	void shouldUseGeoSortParameter() {
+		GeoPoint munich = new GeoPoint(48.137154, 11.5761247);
+		GeoPoint berlin = new GeoPoint(52.520008, 13.404954);
+		GeoPoint vienna = new GeoPoint(48.20849, 16.37208);
+		GeoPoint oslo = new GeoPoint(59.9127, 10.7461);
+
+		List<SampleEntity> entities = new ArrayList<>();
+
+		SampleEntity entity1 = new SampleEntity();
+		entity1.setId("berlin");
+		entity1.setLocation(berlin);
+		entities.add(entity1);
+
+		SampleEntity entity2 = new SampleEntity();
+		entity2.setId("vienna");
+		entity2.setLocation(vienna);
+		entities.add(entity2);
+
+		SampleEntity entity3 = new SampleEntity();
+		entity3.setId("oslo");
+		entity3.setLocation(oslo);
+		entities.add(entity3);
+
+		repository.saveAll(entities);
+
+		SearchHits<SampleEntity> searchHits = repository.searchBy(Sort.by(new GeoDistanceOrder("location", munich)));
+
+		assertThat(searchHits.getTotalHits()).isEqualTo(3);
+		assertThat(searchHits.getSearchHit(0).getId()).isEqualTo("vienna");
+		assertThat(searchHits.getSearchHit(1).getId()).isEqualTo("berlin");
+		assertThat(searchHits.getSearchHit(2).getId()).isEqualTo("oslo");
+	}
+
+	@Test // DATAES-749
+	void shouldReturnSearchPage() {
+		List<SampleEntity> entities = createSampleEntities("abc", 20);
+		repository.saveAll(entities);
+
+		// when
+		SearchPage<SampleEntity> searchPage = repository.searchByMessage("Message", PageRequest.of(0, 10));
+
+		assertThat(searchPage).isNotNull();
+		SearchHits<SampleEntity> searchHits = searchPage.getSearchHits();
+		assertThat(searchHits).isNotNull();
+		assertThat((searchHits.getTotalHits())).isEqualTo(20);
+		assertThat(searchHits.getSearchHits()).hasSize(10);
+		Pageable nextPageable = searchPage.nextPageable();
+		assertThat((nextPageable.getPageNumber())).isEqualTo(1);
+	}
+
 	private List<SampleEntity> createSampleEntities(String type, int numberOfEntities) {
 
 		List<SampleEntity> entities = new ArrayList<>();
@@ -1351,8 +1517,7 @@ public abstract class CustomMethodRepositoryBaseTests {
 	@NoArgsConstructor
 	@AllArgsConstructor
 	@Builder
-	@Document(indexName = "test-index-sample-repositories-custo-method", type = "test-type", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-sample-repositories-custom-method", replicas = 0, refreshInterval = "-1")
 	static class SampleEntity {
 
 		@Id private String id;
@@ -1467,6 +1632,21 @@ public abstract class CustomMethodRepositoryBaseTests {
 		long countByLocationNear(Point point, Distance distance);
 
 		long countByLocationNear(GeoPoint point, String distance);
+
+		@Highlight(fields = { @HighlightField(name = "type") })
+		SearchHits<SampleEntity> queryByType(String type);
+
+		@Query("{\"bool\": {\"must\": [{\"term\": {\"type\": \"?0\"}}]}}")
+		@Highlight(fields = { @HighlightField(name = "type") })
+		SearchHits<SampleEntity> queryByString(String type);
+
+		List<SearchHit<SampleEntity>> queryByMessage(String message);
+
+		Stream<SearchHit<SampleEntity>> readByMessage(String message);
+
+		SearchHits<SampleEntity> searchBy(Sort sort);
+
+		SearchPage<SampleEntity> searchByMessage(String message, Pageable pageable);
 	}
 
 	/**

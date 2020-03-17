@@ -24,34 +24,32 @@ import java.lang.Double;
 import java.lang.Long;
 import java.util.UUID;
 
-import org.elasticsearch.node.NodeValidationException;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
-import org.springframework.data.elasticsearch.Utils;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 import org.springframework.data.elasticsearch.annotations.Score;
 import org.springframework.data.elasticsearch.annotations.ScriptedField;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.IndexOperations;
 import org.springframework.data.elasticsearch.core.geo.GeoPoint;
+import org.springframework.data.elasticsearch.junit.jupiter.ElasticsearchTemplateConfiguration;
+import org.springframework.data.elasticsearch.junit.jupiter.SpringIntegrationTest;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 import org.springframework.data.elasticsearch.utils.IndexInitializer;
 import org.springframework.data.repository.Repository;
+import org.springframework.lang.Nullable;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * @author Rizwan Idrees
@@ -60,11 +58,11 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @author Gad Akuka
  * @author Peter-Josef Meisch
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration
+@SpringIntegrationTest
+@ContextConfiguration(classes = { EnableElasticsearchRepositoriesTests.Config.class })
 public class EnableElasticsearchRepositoriesTests implements ApplicationContextAware {
 
-	ApplicationContext context;
+	@Nullable ApplicationContext context;
 
 	@Override
 	public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
@@ -73,27 +71,23 @@ public class EnableElasticsearchRepositoriesTests implements ApplicationContextA
 	}
 
 	@Configuration
-	@EnableElasticsearchRepositories(basePackages = { "org.springframework.data.elasticsearch.config.notnested" })
-	static class Config {
+	@Import({ ElasticsearchTemplateConfiguration.class })
+	@EnableElasticsearchRepositories
+	static class Config {}
 
-		@Bean
-		public ElasticsearchOperations elasticsearchTemplate() throws NodeValidationException {
-
-			return new ElasticsearchTemplate(Utils.getNodeClient());
-		}
-	}
-
-	@Autowired ElasticsearchTemplate elasticsearchTemplate;
+	@Autowired ElasticsearchOperations operations;
+	private IndexOperations indexOperations;
 
 	@Autowired private SampleElasticsearchRepository repository;
 
 	@Autowired(required = false) private SampleRepository nestedRepository;
 
-	interface SampleRepository extends Repository<EnableElasticsearchRepositoriesTests.SampleEntity, Long> {}
+	interface SampleRepository extends Repository<SampleEntity, Long> {}
 
-	@Before
+	@BeforeEach
 	public void before() {
-		IndexInitializer.init(elasticsearchTemplate, SampleEntity.class);
+		indexOperations = operations.indexOps(SampleEntity.class);
+		IndexInitializer.init(indexOperations);
 	}
 
 	@Test
@@ -122,8 +116,7 @@ public class EnableElasticsearchRepositoriesTests implements ApplicationContextA
 	}
 
 	@Data
-	@Document(indexName = "test-index-sample-config-not-nested", type = "test-type", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-sample-config-not-nested", replicas = 0, refreshInterval = "-1")
 	static class SampleEntity {
 
 		@Id private String id;
@@ -139,8 +132,7 @@ public class EnableElasticsearchRepositoriesTests implements ApplicationContextA
 	}
 
 	@Data
-	@Document(indexName = "test-index-uuid-keyed-config-not-nested", type = "test-type-uuid-keyed", shards = 1,
-			replicas = 0, refreshInterval = "-1")
+	@Document(indexName = "test-index-uuid-keyed-config-not-nested", replicas = 0, refreshInterval = "-1")
 	static class SampleEntityUUIDKeyed {
 
 		@Id private UUID id;

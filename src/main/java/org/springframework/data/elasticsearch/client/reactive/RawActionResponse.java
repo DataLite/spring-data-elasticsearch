@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 the original author or authors.
+ * Copyright 2018-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,9 @@
  */
 package org.springframework.data.elasticsearch.client.reactive;
 
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+import org.elasticsearch.common.io.stream.StreamOutput;
 
-import java.util.List;
+import java.io.IOException;
 
 import org.elasticsearch.action.ActionResponse;
 
@@ -65,5 +64,13 @@ class RawActionResponse extends ActionResponse {
 	 */
 	public <T> T body(BodyExtractor<T, ? super ClientHttpResponse> extractor) {
 		return delegate.body(extractor);
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * until Elasticsearch 7.4 this empty implementation was available in the abstract base class
+	 */
+	@Override
+	public void writeTo(StreamOutput out) throws IOException {
 	}
 }

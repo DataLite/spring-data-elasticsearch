@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,24 +18,21 @@ package org.springframework.data.elasticsearch.core.query;
 import java.util.Map;
 
 import org.elasticsearch.index.query.QueryBuilder;
+import org.springframework.lang.Nullable;
+import org.springframework.util.Assert;
 
 /**
  * @author Mohsin Husen
+ * @author Peter-Josef Meisch
  */
 public class AliasBuilder {
 
-	private String indexName;
-	private String aliasName;
-	private QueryBuilder filterBuilder;
-	private Map<String, Object> filter;
-	private String searchRouting;
-	private String indexRouting;
-	private String routing;
-
-	public AliasBuilder withIndexName(String indexName) {
-		this.indexName = indexName;
-		return this;
-	}
+	@Nullable private String aliasName;
+	@Nullable private QueryBuilder filterBuilder;
+	@Nullable private Map<String, Object> filter;
+	@Nullable private String searchRouting;
+	@Nullable private String indexRouting;
+	@Nullable private String routing;
 
 	public AliasBuilder withAliasName(String aliasName) {
 		this.aliasName = aliasName;
@@ -68,9 +65,10 @@ public class AliasBuilder {
 	}
 
 	public AliasQuery build() {
-		AliasQuery aliasQuery = new AliasQuery();
-		aliasQuery.setIndexName(indexName);
-		aliasQuery.setAliasName(aliasName);
+
+		Assert.notNull(aliasName, "aliasName must not be null");
+
+		AliasQuery aliasQuery = new AliasQuery(aliasName);
 		aliasQuery.setFilterBuilder(filterBuilder);
 		aliasQuery.setFilter(filter);
 		aliasQuery.setSearchRouting(searchRouting);

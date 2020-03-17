@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,28 +27,30 @@ import java.lang.Integer;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.search.aggregations.Aggregations;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.InnerField;
 import org.springframework.data.elasticsearch.annotations.MultiField;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
-import org.springframework.data.elasticsearch.core.ResultsExtractor;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.IndexOperations;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.IndexQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.elasticsearch.core.query.SearchQuery;
+import org.springframework.data.elasticsearch.junit.jupiter.ElasticsearchRestTemplateConfiguration;
+import org.springframework.data.elasticsearch.junit.jupiter.SpringIntegrationTest;
 import org.springframework.data.elasticsearch.utils.IndexInitializer;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * @author Rizwan Idrees
@@ -57,9 +59,13 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @author Artur Konczak
  * @author Peter-Josef Meisch
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration("classpath:elasticsearch-template-test.xml")
+@SpringIntegrationTest
+@ContextConfiguration(classes = { ElasticsearchTemplateAggregationTests.Config.class })
 public class ElasticsearchTemplateAggregationTests {
+
+	@Configuration
+	@Import({ ElasticsearchRestTemplateConfiguration.class })
+	static class Config {}
 
 	static final String RIZWAN_IDREES = "Rizwan Idrees";
 	static final String MOHSIN_HUSEN = "Mohsin Husen";
@@ -70,12 +76,13 @@ public class ElasticsearchTemplateAggregationTests {
 	static final int YEAR_2000 = 2000;
 	static final String INDEX_NAME = "test-index-articles-core-aggregation";
 
-	@Autowired private ElasticsearchTemplate elasticsearchTemplate;
+	@Autowired private ElasticsearchOperations operations;
+	private IndexOperations indexOperations;
 
-	@Before
+	@BeforeEach
 	public void before() {
-
-		IndexInitializer.init(elasticsearchTemplate, ArticleEntity.class);
+		indexOperations = operations.indexOps(ArticleEntity.class);
+		IndexInitializer.init(indexOperations);
 
 		IndexQuery article1 = new ArticleEntityBuilder("1").title("article four").subject("computing")
 				.addAuthor(RIZWAN_IDREES).addAuthor(ARTUR_KONCZAK).addAuthor(MOHSIN_HUSEN).addAuthor(JONATHAN_YAN).score(10)
@@ -90,36 +97,33 @@ public class ElasticsearchTemplateAggregationTests {
 				.addAuthor(RIZWAN_IDREES).addPublishedYear(YEAR_2002).addPublishedYear(YEAR_2001).addPublishedYear(YEAR_2000)
 				.score(40).buildIndex();
 
-		elasticsearchTemplate.index(article1);
-		elasticsearchTemplate.index(article2);
-		elasticsearchTemplate.index(article3);
-		elasticsearchTemplate.index(article4);
-		elasticsearchTemplate.refresh(ArticleEntity.class);
+		IndexCoordinates index = IndexCoordinates.of(INDEX_NAME).withTypes("article");
+		operations.index(article1, index);
+		operations.index(article2, index);
+		operations.index(article3, index);
+		operations.index(article4, index);
+		indexOperations.refresh();
 	}
 
-	@After
+	@AfterEach
 	public void after() {
-
-		elasticsearchTemplate.deleteIndex(ArticleEntity.class);
+		indexOperations.delete();
 	}
 
 	@Test
 	public void shouldReturnAggregatedResponseForGivenSearchQuery() {
 
 		// given
-		SearchQuery searchQuery = new NativeSearchQueryBuilder() //
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder() //
 				.withQuery(matchAllQuery()) //
 				.withSearchType(SearchType.DEFAULT) //
-				.withIndices(INDEX_NAME).withTypes("article") //
 				.addAggregation(terms("subjects").field("subject")) //
 				.build();
 		// when
-		Aggregations aggregations = elasticsearchTemplate.query(searchQuery, new ResultsExtractor<Aggregations>() {
-			@Override
-			public Aggregations extract(SearchResponse response) {
-				return response.getAggregations();
-			}
-		});
+		SearchHits<ArticleEntity> searchHits = operations.search(searchQuery, ArticleEntity.class,
+				IndexCoordinates.of(INDEX_NAME));
+		Aggregations aggregations = searchHits.getAggregations();
+
 		// then
 		assertThat(aggregations).isNotNull();
 		assertThat(aggregations.asMap().get("subjects")).isNotNull();
@@ -132,8 +136,7 @@ public class ElasticsearchTemplateAggregationTests {
 	 * @author Mohsin Husen
 	 */
 	@Data
-	@Document(indexName = "test-index-articles-core-aggregation", type = "article", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-articles-core-aggregation", replicas = 0, refreshInterval = "-1")
 	static class ArticleEntity {
 
 		@Id private String id;
@@ -149,10 +152,6 @@ public class ElasticsearchTemplateAggregationTests {
 		@Field(type = Integer, store = true) private List<Integer> publishedYears = new ArrayList<>();
 
 		private int score;
-
-		private ArticleEntity() {
-
-		}
 
 		public ArticleEntity(String id) {
 			this.id = id;

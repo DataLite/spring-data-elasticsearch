@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 the original author or authors.
+ * Copyright 2019-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.springframework.data.elasticsearch.core.convert.ElasticsearchConverter;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -33,12 +32,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -47,6 +46,7 @@ import org.springframework.data.elasticsearch.annotations.InnerField;
 import org.springframework.data.elasticsearch.annotations.MultiField;
 import org.springframework.data.elasticsearch.annotations.Query;
 import org.springframework.data.elasticsearch.core.ReactiveElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.convert.ElasticsearchConverter;
 import org.springframework.data.elasticsearch.core.convert.MappingElasticsearchConverter;
 import org.springframework.data.elasticsearch.core.mapping.SimpleElasticsearchMappingContext;
 import org.springframework.data.elasticsearch.core.query.StringQuery;
@@ -55,12 +55,13 @@ import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.core.support.DefaultRepositoryMetadata;
 import org.springframework.data.repository.query.QueryMethodEvaluationContextProvider;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.lang.Nullable;
 
 /**
  * @author Christoph Strobl
  * @author Peter-Josef Meisch
  */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class ReactiveElasticsearchStringQueryUnitTests {
 
 	SpelExpressionParser PARSER = new SpelExpressionParser();
@@ -68,7 +69,7 @@ public class ReactiveElasticsearchStringQueryUnitTests {
 
 	@Mock ReactiveElasticsearchOperations operations;
 
-	@Before
+	@BeforeEach
 	public void setUp() {
 		converter = new MappingElasticsearchConverter(new SimpleElasticsearchMappingContext());
 	}
@@ -87,7 +88,7 @@ public class ReactiveElasticsearchStringQueryUnitTests {
 	}
 
 	@Test // DATAES-519
-	@Ignore("TODO: fix spel query integration")
+	@Disabled("TODO: fix spel query integration")
 	public void bindsExpressionPropertyCorrectly() throws Exception {
 
 		ReactiveElasticsearchStringQuery elasticsearchStringQuery = createQueryForMethod("findByNameWithExpression",
@@ -126,7 +127,7 @@ public class ReactiveElasticsearchStringQueryUnitTests {
 	private org.springframework.data.elasticsearch.core.query.Query createQuery(String methodName, String... args)
 			throws NoSuchMethodException {
 
-		Class<?>[] argTypes = Arrays.stream(args).map(Object::getClass).toArray(size -> new Class[size]);
+		Class<?>[] argTypes = Arrays.stream(args).map(Object::getClass).toArray(Class[]::new);
 		ReactiveElasticsearchQueryMethod queryMethod = getQueryMethod(methodName, argTypes);
 		ReactiveElasticsearchStringQuery elasticsearchStringQuery = queryForMethod(queryMethod);
 
@@ -175,18 +176,18 @@ public class ReactiveElasticsearchStringQueryUnitTests {
 	 * @author Artur Konczak
 	 */
 
-	@Document(indexName = "test-index-person-reactive-repository-string-query", type = "user", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-person-reactive-repository-string-query", replicas = 0, refreshInterval = "-1")
 	public class Person {
 
-		@Id private String id;
+		@Nullable @Id private String id;
 
-		private String name;
+		@Nullable private String name;
 
-		@Field(type = FieldType.Nested) private List<Car> car;
+		@Nullable @Field(type = FieldType.Nested) private List<Car> car;
 
-		@Field(type = FieldType.Nested, includeInParent = true) private List<Book> books;
+		@Nullable @Field(type = FieldType.Nested, includeInParent = true) private List<Book> books;
 
+		@Nullable
 		public String getId() {
 			return id;
 		}
@@ -195,6 +196,7 @@ public class ReactiveElasticsearchStringQueryUnitTests {
 			this.id = id;
 		}
 
+		@Nullable
 		public String getName() {
 			return name;
 		}
@@ -203,6 +205,7 @@ public class ReactiveElasticsearchStringQueryUnitTests {
 			this.name = name;
 		}
 
+		@Nullable
 		public List<Car> getCar() {
 			return car;
 		}
@@ -211,6 +214,7 @@ public class ReactiveElasticsearchStringQueryUnitTests {
 			this.car = car;
 		}
 
+		@Nullable
 		public List<Book> getBooks() {
 			return books;
 		}
@@ -230,8 +234,7 @@ public class ReactiveElasticsearchStringQueryUnitTests {
 	@NoArgsConstructor
 	@AllArgsConstructor
 	@Builder
-	@Document(indexName = "test-index-book-reactive-repository-string-query", type = "book", shards = 1, replicas = 0,
-			refreshInterval = "-1")
+	@Document(indexName = "test-index-book-reactive-repository-string-query", replicas = 0, refreshInterval = "-1")
 	static class Book {
 
 		@Id private String id;
@@ -281,9 +284,10 @@ public class ReactiveElasticsearchStringQueryUnitTests {
 	 */
 	static class Author {
 
-		private String id;
-		private String name;
+		@Nullable private String id;
+		@Nullable private String name;
 
+		@Nullable
 		public String getId() {
 			return id;
 		}
@@ -292,6 +296,7 @@ public class ReactiveElasticsearchStringQueryUnitTests {
 			this.id = id;
 		}
 
+		@Nullable
 		public String getName() {
 			return name;
 		}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,10 @@ import java.util.regex.Pattern;
 
 import org.springframework.core.convert.support.GenericConversionService;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHitSupport;
+import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.convert.DateTimeConverters;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.StringQuery;
 import org.springframework.data.repository.query.ParametersParameterAccessor;
 import org.springframework.util.Assert;
@@ -66,19 +69,35 @@ public class ElasticsearchStringQuery extends AbstractElasticsearchRepositoryQue
 
 	@Override
 	public Object execute(Object[] parameters) {
+		Class<?> clazz = queryMethod.getEntityInformation().getJavaType();
 		ParametersParameterAccessor accessor = new ParametersParameterAccessor(queryMethod.getParameters(), parameters);
+
 		StringQuery stringQuery = createQuery(accessor);
+
+		Assert.notNull(stringQuery, "unsupported query");
+
+		if (queryMethod.hasAnnotatedHighlight()) {
+			stringQuery.setHighlightQuery(queryMethod.getAnnotatedHighlightQuery());
+		}
+
+		IndexCoordinates index = elasticsearchOperations.getIndexCoordinatesFor(clazz);
+
+		Object result = null;
+
 		if (queryMethod.isPageQuery()) {
 			stringQuery.setPageable(accessor.getPageable());
-			return elasticsearchOperations.queryForPage(stringQuery, queryMethod.getEntityInformation().getJavaType());
+			SearchHits<?> searchHits = elasticsearchOperations.search(stringQuery, clazz, index);
+			result = SearchHitSupport.page(searchHits, stringQuery.getPageable());
 		} else if (queryMethod.isCollectionQuery()) {
 			if (accessor.getPageable().isPaged()) {
 				stringQuery.setPageable(accessor.getPageable());
 			}
-			return elasticsearchOperations.queryForList(stringQuery, queryMethod.getEntityInformation().getJavaType());
+			result = elasticsearchOperations.search(stringQuery, clazz, index);
+		} else {
+			result = elasticsearchOperations.searchOne(stringQuery, clazz, index);
 		}
 
-		return elasticsearchOperations.queryForObject(stringQuery, queryMethod.getEntityInformation().getJavaType());
+		return queryMethod.isNotSearchHitMethod() ? SearchHitSupport.unwrapSearchHits(result) : result;
 	}
 
 	protected StringQuery createQuery(ParametersParameterAccessor parameterAccessor) {

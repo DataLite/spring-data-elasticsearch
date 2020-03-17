@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,35 +20,52 @@ import static org.springframework.data.elasticsearch.annotations.FieldType.*;
 
 import lombok.Data;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.IndexOperations;
+import org.springframework.data.elasticsearch.junit.jupiter.ElasticsearchRestTemplateConfiguration;
+import org.springframework.data.elasticsearch.junit.jupiter.SpringIntegrationTest;
+import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 import org.springframework.data.elasticsearch.utils.IndexInitializer;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * @author Artur Konczak
  * @author Mohsin Husen
  * @author Peter-Josef Meisch
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration("classpath:complex-custom-method-repository-test.xml")
+@SpringIntegrationTest
+@ContextConfiguration(classes = { ComplexCustomMethodRepositoryTests.Config.class })
 public class ComplexCustomMethodRepositoryTests {
+
+	@Configuration
+	@Import({ ElasticsearchRestTemplateConfiguration.class })
+	@EnableElasticsearchRepositories(considerNestedRepositories = true)
+	static class Config {}
 
 	@Autowired private ComplexElasticsearchRepository complexRepository;
 
-	@Autowired private ElasticsearchTemplate elasticsearchTemplate;
+	@Autowired ElasticsearchOperations operations;
 
-	@Before
+	private IndexOperations indexOperations;
+
+	@BeforeEach
 	public void before() {
-		IndexInitializer.init(elasticsearchTemplate, SampleEntity.class);
+		indexOperations = operations.indexOps(SampleEntity.class);
+		IndexInitializer.init(indexOperations);
+	}
+
+	@AfterEach
+	void after() {
+		indexOperations.delete();
 	}
 
 	@Test
@@ -64,8 +81,8 @@ public class ComplexCustomMethodRepositoryTests {
 	}
 
 	@Data
-	@Document(indexName = "test-index-sample-repositories-complex-custommethod-autowiring", type = "test-type",
-			shards = 1, replicas = 0, refreshInterval = "-1")
+	@Document(indexName = "test-index-sample-repositories-complex-custommethod-autowiring", replicas = 0,
+			refreshInterval = "-1")
 	static class SampleEntity {
 
 		@Id private String id;

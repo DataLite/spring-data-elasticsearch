@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 the original author or authors.
+ * Copyright 2018-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
 
 import org.apache.http.Header;
@@ -53,6 +54,7 @@ import org.springframework.util.Assert;
  * @author Christoph Strobl
  * @author Mark Paluch
  * @author Huw Ayling-Miller
+ * @author Henrique Amaral
  * @since 3.2
  */
 public final class RestClients {
@@ -93,7 +95,9 @@ public final class RestClients {
 		builder.setHttpClientConfigCallback(clientBuilder -> {
 
 			Optional<SSLContext> sslContext = clientConfiguration.getSslContext();
+			Optional<HostnameVerifier> hostNameVerifier = clientConfiguration.getHostNameVerifier();
 			sslContext.ifPresent(clientBuilder::setSSLContext);
+			hostNameVerifier.ifPresent(clientBuilder::setSSLHostnameVerifier);
 
 			if (ClientLogger.isEnabled()) {
 
@@ -119,6 +123,8 @@ public final class RestClients {
 			}
 
 			clientBuilder.setDefaultRequestConfig(requestConfigBuilder.build());
+
+			clientConfiguration.getProxy().map(HttpHost::create).ifPresent(clientBuilder::setProxy);
 
 			return clientBuilder;
 		});

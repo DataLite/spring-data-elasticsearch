@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,10 @@ import static org.springframework.data.elasticsearch.annotations.FieldType.*;
 import lombok.Data;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.Date;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.DateFormat;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -38,13 +39,13 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
  */
 public class SimpleElasticsearchDateMappingTests extends MappingContextBaseTests {
 
-	private static final String EXPECTED_MAPPING = "{\"mapping\":{\"properties\":{\"message\":{\"store\":true,"
-			+ "\"type\":\"text\",\"index\":false,\"analyzer\":\"standard\"},\"customFormatDate\":{\"type\":\"date\",\"format\":\"dd.MM.yyyy hh:mm\"},"
+	private static final String EXPECTED_MAPPING = "{\"properties\":{\"message\":{\"store\":true,"
+			+ "\"type\":\"text\",\"index\":false,\"analyzer\":\"standard\"},\"customFormatDate\":{\"type\":\"date\",\"format\":\"dd.MM.uuuu hh:mm\"},"
 			+ "\"defaultFormatDate\":{\"type\":\"date\"},\"basicFormatDate\":{\""
-			+ "type\":\"date\",\"format\":\"basic_date\"}}}}";
+			+ "type\":\"date\",\"format\":\"basic_date\"}}}";
 
 	@Test // DATAES-568
-	public void testCorrectDateMappings() throws IOException {
+	public void testCorrectDateMappings() {
 
 		String mapping = getMappingBuilder().buildPropertyMapping(SampleDateMappingEntity.class);
 
@@ -55,7 +56,7 @@ public class SimpleElasticsearchDateMappingTests extends MappingContextBaseTests
 	 * @author Jakub Vavrik
 	 */
 	@Data
-	@Document(indexName = "test-index-date-mapping-core", type = "mapping", shards = 1, replicas = 0,
+	@Document(indexName = "test-index-date-mapping-core", replicas = 0,
 			refreshInterval = "-1")
 	static class SampleDateMappingEntity {
 
@@ -64,10 +65,10 @@ public class SimpleElasticsearchDateMappingTests extends MappingContextBaseTests
 		@Field(type = Text, index = false, store = true, analyzer = "standard") private String message;
 
 		@Field(type = Date, format = DateFormat.custom,
-				pattern = "dd.MM.yyyy hh:mm") private java.util.Date customFormatDate;
+				pattern = "dd.MM.uuuu hh:mm") private LocalDateTime customFormatDate;
 
-		@Field(type = FieldType.Date) private Date defaultFormatDate;
+		@Field(type = FieldType.Date) private LocalDateTime defaultFormatDate;
 
-		@Field(type = FieldType.Date, format = DateFormat.basic_date) private Date basicFormatDate;
+		@Field(type = FieldType.Date, format = DateFormat.basic_date) private LocalDateTime basicFormatDate;
 	}
 }

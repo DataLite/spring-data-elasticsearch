@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,20 @@ package org.springframework.data.elasticsearch;
 
 import java.util.Map;
 
+import org.springframework.lang.Nullable;
+
 /**
  * ElasticsearchException
  *
  * @author Rizwan Idrees
  * @author Mohsin Husen
+ * @author Peter-Josef Meisch
+ * @deprecated since 4.0, use {@link org.springframework.dao.UncategorizedDataAccessException}
  */
+@Deprecated
 public class ElasticsearchException extends RuntimeException {
 
-	private Map<String, String> failedDocuments;
+	@Nullable private Map<String, String> failedDocuments;
 
 	public ElasticsearchException(String message) {
 		super(message);
@@ -45,6 +50,7 @@ public class ElasticsearchException extends RuntimeException {
 		this.failedDocuments = failedDocuments;
 	}
 
+	@Nullable
 	public Map<String, String> getFailedDocuments() {
 		return failedDocuments;
 	}

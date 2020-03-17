@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2019 the original author or authors.
+ * Copyright 2015-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 package org.springframework.data.elasticsearch.client;
-
-import static java.util.Arrays.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,7 +32,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.FactoryBean;
+import org.springframework.beans.factory.FactoryBeanNotInitializedException;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.lang.Nullable;
 import org.springframework.util.StringUtils;
 
 /**
@@ -50,15 +50,16 @@ public class NodeClientFactoryBean implements FactoryBean<Client>, InitializingB
 	private static final Logger logger = LoggerFactory.getLogger(NodeClientFactoryBean.class);
 	private boolean local;
 	private boolean enableHttp;
-	private String clusterName;
-	private NodeClient nodeClient;
-	private String pathData;
-	private String pathHome;
-	private String pathConfiguration;
+	private @Nullable String clusterName;
+	private @Nullable Node node;
+	private @Nullable NodeClient nodeClient;
+	private @Nullable String pathData;
+	private @Nullable String pathHome;
+	private @Nullable String pathConfiguration;
 
 	public static class TestNode extends Node {
 
-		private static final String DEFAULT_NODE_NAME = "spring-data-elasticsearch-test-node";
+		private static final String DEFAULT_NODE_NAME = "spring-data-elasticsearch-nodeclientfactorybean-test";
 
 		public TestNode(Settings preparedSettings, Collection<Class<? extends Plugin>> classpathPlugins) {
 
@@ -82,7 +83,12 @@ public class NodeClientFactoryBean implements FactoryBean<Client>, InitializingB
 	}
 
 	@Override
-	public NodeClient getObject() throws Exception {
+	public NodeClient getObject() {
+
+		if (nodeClient == null) {
+			throw new FactoryBeanNotInitializedException();
+		}
+
 		return nodeClient;
 	}
 
@@ -99,10 +105,17 @@ public class NodeClientFactoryBean implements FactoryBean<Client>, InitializingB
 	@Override
 	public void afterPropertiesSet() throws Exception {
 
-		nodeClient = (NodeClient) new TestNode(Settings.builder().put(loadConfig()).put("transport.type", "netty4")
-				.put("http.type", "netty4").put("path.home", this.pathHome).put("path.data", this.pathData)
-				.put("cluster.name", this.clusterName).put("node.max_local_storage_nodes", 100).build(),
-				asList(Netty4Plugin.class)).start().client();
+		Settings settings = Settings.builder() //
+				.put(loadConfig()) //
+				.put("transport.type", "netty4") //
+				.put("http.type", "netty4") //
+				.put("path.home", this.pathHome) //
+				.put("path.data", this.pathData) //
+				.put("cluster.name", this.clusterName) //
+				.put("node.max_local_storage_nodes", 100) //
+				.build();
+		node = new TestNode(settings, Collections.singletonList(Netty4Plugin.class));
+		nodeClient = (NodeClient) node.start().client();
 	}
 
 	private Settings loadConfig() throws IOException {
@@ -142,11 +155,14 @@ public class NodeClientFactoryBean implements FactoryBean<Client>, InitializingB
 	}
 
 	@Override
-	public void destroy() throws Exception {
+	public void destroy() {
 		try {
-			logger.info("Closing elasticSearch  client");
-			if (nodeClient != null) {
-				nodeClient.close();
+			// NodeClient.close() is a noop, no need to call it here
+			nodeClient = null;
+			logger.info("Closing elasticSearch node");
+			if (node != null) {
+				node.close();
+				node = null;
 			}
 		} catch (final Exception e) {
 			logger.error("Error closing ElasticSearch client: ", e);

@@ -19,7 +19,7 @@
 
 	<properties>
 		<commonslang>2.6</commonslang>
-		<elasticsearch>7.3.2</elasticsearch>
+		<elasticsearch>7.6.1</elasticsearch>
 		<log4j>2.9.1</log4j>
 		<springdata.commons>2.3.0.BUILD-SNAPSHOT</springdata.commons>
 		<netty>4.1.39.Final</netty>
@@ -249,6 +249,24 @@
 			<scope>test</scope>
 		</dependency>
 
+		<dependency>
+			<groupId>com.github.tomakehurst</groupId>
+			<artifactId>wiremock-jre8</artifactId>
+			<version>2.25.1</version>
+			<scope>test</scope>
+			<exclusions>
+				<!-- these exclusions are needed because of Elasticsearch JarHell-->
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.ow2.asm</groupId>
+					<artifactId>asm</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
 		<!-- Upgrade xbean to 4.5 to prevent incompatibilities due to ASM versions -->
 		<dependency>
 			<groupId>org.apache.xbean</groupId>
@@ -259,8 +277,15 @@
 
 		<dependency>
 			<groupId>javax.servlet</groupId>
-			<artifactId>servlet-api</artifactId>
-			<version>3.0-alpha-1</version>
+			<artifactId>javax.servlet-api</artifactId>
+			<version>3.1.0</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.mockito</groupId>
+			<artifactId>mockito-junit-jupiter</artifactId>
+			<version>${mockito}</version>
 			<scope>test</scope>
 		</dependency>
 

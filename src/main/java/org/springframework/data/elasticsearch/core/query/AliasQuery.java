@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,38 +18,36 @@ package org.springframework.data.elasticsearch.core.query;
 import java.util.Map;
 
 import org.elasticsearch.index.query.QueryBuilder;
+import org.springframework.lang.Nullable;
+import org.springframework.util.Assert;
 
 /**
  * AliasQuery is useful for creating new alias or deleting existing ones
  *
  * @author Mohsin Husen
+ * @author Peter-Josef Meisch
  */
 public class AliasQuery {
 
-	private String indexName;
+	public AliasQuery(String aliasName) {
+
+		Assert.notNull(aliasName, "aliasName must not be null");
+
+		this.aliasName = aliasName;
+	}
+
 	private String aliasName;
-	private QueryBuilder filterBuilder;
-	private Map<String, Object> filter;
-	private String searchRouting;
-	private String indexRouting;
-	private String routing;
-
-	public String getIndexName() {
-		return indexName;
-	}
-
-	public void setIndexName(String indexName) {
-		this.indexName = indexName;
-	}
+	@Nullable private QueryBuilder filterBuilder;
+	@Nullable private Map<String, Object> filter;
+	@Nullable private String searchRouting;
+	@Nullable private String indexRouting;
+	@Nullable private String routing;
 
 	public String getAliasName() {
 		return aliasName;
 	}
 
-	public void setAliasName(String aliasName) {
-		this.aliasName = aliasName;
-	}
-
+	@Nullable
 	public QueryBuilder getFilterBuilder() {
 		return filterBuilder;
 	}
@@ -58,6 +56,7 @@ public class AliasQuery {
 		this.filterBuilder = filterBuilder;
 	}
 
+	@Nullable
 	public Map<String, Object> getFilter() {
 		return filter;
 	}
@@ -66,6 +65,7 @@ public class AliasQuery {
 		this.filter = filter;
 	}
 
+	@Nullable
 	public String getSearchRouting() {
 		return searchRouting;
 	}
@@ -74,6 +74,7 @@ public class AliasQuery {
 		this.searchRouting = searchRouting;
 	}
 
+	@Nullable
 	public String getIndexRouting() {
 		return indexRouting;
 	}
@@ -82,6 +83,7 @@ public class AliasQuery {
 		this.indexRouting = indexRouting;
 	}
 
+	@Nullable
 	public String getRouting() {
 		return routing;
 	}

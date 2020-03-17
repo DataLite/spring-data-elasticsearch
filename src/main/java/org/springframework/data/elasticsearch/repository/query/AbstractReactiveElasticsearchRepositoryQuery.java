@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 the original author or authors.
+ * Copyright 2019-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,10 @@ import reactor.core.publisher.Mono;
 import org.reactivestreams.Publisher;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.elasticsearch.core.ReactiveElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHitSupport;
 import org.springframework.data.elasticsearch.core.mapping.ElasticsearchPersistentEntity;
 import org.springframework.data.elasticsearch.core.mapping.ElasticsearchPersistentProperty;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.data.elasticsearch.repository.query.ReactiveElasticsearchQueryExecution.ResultProcessingConverter;
 import org.springframework.data.elasticsearch.repository.query.ReactiveElasticsearchQueryExecution.ResultProcessingExecution;
@@ -36,6 +38,7 @@ import org.springframework.data.repository.query.ResultProcessor;
  * AbstractElasticsearchRepositoryQuery
  *
  * @author Christoph Strobl
+ * @author Peter-Josef Meisch
  * @since 3.2
  */
 abstract class AbstractReactiveElasticsearchRepositoryQuery implements RepositoryQuery {
@@ -54,10 +57,12 @@ abstract class AbstractReactiveElasticsearchRepositoryQuery implements Repositor
 	 * (non-Javadoc)
 	 * @see org.springframework.data.repository.query.RepositoryQuery#execute(java.lang.Object[])
 	 */
+	@Override
 	public Object execute(Object[] parameters) {
 
-		return queryMethod.hasReactiveWrapperParameter() ? executeDeferred(parameters)
+		Object result = queryMethod.hasReactiveWrapperParameter() ? executeDeferred(parameters)
 				: execute(new ReactiveElasticsearchParametersParameterAccessor(queryMethod, parameters));
+		return queryMethod.isNotSearchHitMethod() ? SearchHitSupport.unwrapSearchHits(result) : result;
 	}
 
 	private Object executeDeferred(Object[] parameters) {
@@ -79,14 +84,19 @@ abstract class AbstractReactiveElasticsearchRepositoryQuery implements Repositor
 		Query query = createQuery(
 				new ConvertingParameterAccessor(elasticsearchOperations.getElasticsearchConverter(), parameterAccessor));
 
-		Class<?> typeToRead = processor.getReturnedType().getTypeToRead();
+		if (queryMethod.hasAnnotatedHighlight()) {
+			query.setHighlightQuery(queryMethod.getAnnotatedHighlightQuery());
+		}
+
+		Class<?> targetType = processor.getReturnedType().getTypeToRead();
 		String indexName = queryMethod.getEntityInformation().getIndexName();
 		String indexTypeName = queryMethod.getEntityInformation().getIndexTypeName();
+		IndexCoordinates index = IndexCoordinates.of(indexName).withTypes(indexTypeName);
 
 		ReactiveElasticsearchQueryExecution execution = getExecution(parameterAccessor,
-				new ResultProcessingConverter(processor, elasticsearchOperations));
+				new ResultProcessingConverter(processor));
 
-		return execution.execute(query, processor.getReturnedType().getDomainType(), indexName, indexTypeName, typeToRead);
+		return execution.execute(query, processor.getReturnedType().getDomainType(), targetType, index);
 	}
 
 	private ReactiveElasticsearchQueryExecution getExecution(ElasticsearchParameterAccessor accessor,
@@ -106,15 +116,18 @@ abstract class AbstractReactiveElasticsearchRepositoryQuery implements Repositor
 			ReactiveElasticsearchOperations operations) {
 
 		if (isDeleteQuery()) {
-			return (q, t, i, it, tt) -> operations.deleteBy(q, t, i, it);
+			return (query, type, targetType, indexCoordinates) -> operations.delete(query, type, indexCoordinates);
 		} else if (isCountQuery()) {
-			return (q, t, i, it, tt) -> operations.count(q, t, i, it);
+			return (query, type, targetType, indexCoordinates) -> operations.count(query, type, indexCoordinates);
 		} else if (isExistsQuery()) {
-			return (q, t, i, it, tt) -> operations.count(q, t, i, it).map(count -> count > 0);
+			return (query, type, targetType, indexCoordinates) -> operations.count(query, type, indexCoordinates)
+					.map(count -> count > 0);
 		} else if (queryMethod.isCollectionQuery()) {
-			return (q, t, i, it, tt) -> operations.find(q.setPageable(accessor.getPageable()), t, i, it, tt);
+			return (query, type, targetType, indexCoordinates) -> operations.search(query.setPageable(accessor.getPageable()),
+					type, targetType, indexCoordinates);
 		} else {
-			return (q, t, i, it, tt) -> operations.find(q, t, i, it, tt);
+			return (query, type, targetType, indexCoordinates) -> operations.search(query, type, targetType,
+					indexCoordinates);
 		}
 	}
 

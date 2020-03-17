@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 the original author or authors.
+ * Copyright 2019-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import org.elasticsearch.client.RestHighLevelClient;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.annotation.Id;
@@ -28,15 +28,16 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.config.AbstractElasticsearchConfiguration;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
+import org.springframework.lang.Nullable;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 /**
  * Tests for {@link AbstractElasticsearchConfiguration}.
  *
  * @author Peter-Josef Meisch
  */
-@RunWith(SpringRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration
 public class ElasticsearchConfigurationTests {
 
@@ -65,10 +66,10 @@ public class ElasticsearchConfigurationTests {
 		assertThat(repository).isNotNull();
 	}
 
-	@Document(indexName = "test-index-config-abstractelasticsearchconfiguraiton", type = "test-type", createIndex = false)
+	@Document(indexName = "test-index-config-abstractelasticsearchconfiguraiton", createIndex = false)
 	static class CreateIndexFalseEntity {
 
-		@Id private String id;
+		@Nullable @Id private String id;
 	}
 
 	interface CreateIndexFalseRepository extends ElasticsearchRepository<CreateIndexFalseEntity, String> {}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,11 @@ package org.springframework.data.elasticsearch.repository;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.elasticsearch.core.query.SearchQuery;
+import org.springframework.data.elasticsearch.core.IndexOperations;
+import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.data.repository.NoRepositoryBean;
+import org.springframework.data.repository.PagingAndSortingRepository;
+import org.springframework.lang.Nullable;
 
 /**
  * @param <T>
@@ -28,11 +31,18 @@ import org.springframework.data.repository.NoRepositoryBean;
  * @author Mohsin Husen
  * @author Sascha Woo
  * @author Murali Chevuri
+ * @author Peter-Josef Meisch
  */
 @NoRepositoryBean
-public interface ElasticsearchRepository<T, ID> extends ElasticsearchCrudRepository<T, ID> {
+public interface ElasticsearchRepository<T, ID> extends PagingAndSortingRepository<T, ID> {
 
-	<S extends T> S index(S entity);
+	/**
+	 * @deprecated since 4.0, use {@link #save(Object)} instead
+	 */
+	@Deprecated
+	default <S extends T> S index(S entity) {
+		return save(entity);
+	}
 
 	/**
 	 * This method is intended to be used when many single inserts must be made that cannot be aggregated to be inserted
@@ -41,15 +51,38 @@ public interface ElasticsearchRepository<T, ID> extends ElasticsearchCrudReposit
 	 */
 	<S extends T> S indexWithoutRefresh(S entity);
 
+	/**
+	 * @deprecated since 4.0, use standard repository method naming or @{@link Query} annotated methods, or
+	 *             {@link org.springframework.data.elasticsearch.core.ElasticsearchOperations}.
+	 */
 	Iterable<T> search(QueryBuilder query);
 
+	/**
+	 * @deprecated since 4.0, use standard repository method naming or @{@link Query} annotated methods, or
+	 *             {@link org.springframework.data.elasticsearch.core.ElasticsearchOperations}.
+	 */
 	Page<T> search(QueryBuilder query, Pageable pageable);
 
-	Page<T> search(SearchQuery searchQuery);
+	/**
+	 * @deprecated since 4.0, use standard repository method naming or @{@link Query} annotated methods, or
+	 *             {@link org.springframework.data.elasticsearch.core.ElasticsearchOperations}.
+	 */
+	Page<T> search(Query searchQuery);
 
-	Page<T> searchSimilar(T entity, String[] fields, Pageable pageable);
+	/**
+	 * Search for similar entities using a morelikethis query
+	 * 
+	 * @param entity the entity for which similar documents should be searched, must not be {@literal null}
+	 * @param fields
+	 * @param pageable , must not be {@literal null}
+	 * @return
+	 */
+	Page<T> searchSimilar(T entity, @Nullable String[] fields, Pageable pageable);
 
+	/**
+	 * @deprecated since 4.0, use {@link IndexOperations#refresh(Class)} instead. Repository methods should call refresh
+	 *             in their implementation.
+	 */
+	@Deprecated
 	void refresh();
-
-	Class<T> getEntityClass();
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2019 the original author or authors.
+ * Copyright 2014-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,39 +15,46 @@
  */
 package org.springframework.data.elasticsearch.repository.support;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
-import org.springframework.data.elasticsearch.core.mapping.ElasticsearchPersistentEntity;
-import org.springframework.data.elasticsearch.core.mapping.ElasticsearchPersistentProperty;
-import org.springframework.data.mapping.context.MappingContext;
+import static org.assertj.core.api.Assertions.*;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.data.elasticsearch.annotations.Document;
+import org.springframework.data.elasticsearch.core.mapping.SimpleElasticsearchMappingContext;
+import org.springframework.data.mapping.MappingException;
 
 /**
  * @author Florian Hopf
  * @author Mark Paluch
  */
-@RunWith(MockitoJUnitRunner.class)
 public class ElasticsearchEntityInformationCreatorImplTests {
-
-	@Mock MappingContext<? extends ElasticsearchPersistentEntity<?>, ElasticsearchPersistentProperty> mappingContext;
-	@Mock ElasticsearchPersistentEntity<String> persistentEntity;
 
 	ElasticsearchEntityInformationCreatorImpl entityInfoCreator;
 
-	@Before
+	@BeforeEach
 	public void before() {
-		entityInfoCreator = new ElasticsearchEntityInformationCreatorImpl(mappingContext);
+		SimpleElasticsearchMappingContext context = new SimpleElasticsearchMappingContext();
+		Set<Class<?>> entites = new HashSet<>();
+		entites.add(EntityNoId.class);
+		context.setInitialEntitySet(entites);
+		entityInfoCreator = new ElasticsearchEntityInformationCreatorImpl(context);
 	}
 
-	@Test(expected = IllegalArgumentException.class)
-	public void shouldThrowIllegalArgumentExceptionOnMissingEntity() {
-		entityInfoCreator.getEntityInformation(String.class);
+	@Test
+	public void shouldThrowMappingExceptionOnMissingEntity() {
+		assertThatThrownBy(() -> entityInfoCreator.getEntityInformation(String.class)).isInstanceOf(MappingException.class);
 	}
 
-	@Test(expected = IllegalArgumentException.class)
+	@Test
 	public void shouldThrowIllegalArgumentExceptionOnMissingIdAnnotation() {
-		entityInfoCreator.getEntityInformation(String.class);
+		assertThatThrownBy(() -> entityInfoCreator.getEntityInformation(EntityNoId.class)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("No id property found");
+	}
+
+	@Document(indexName = "whatever")
+	static class EntityNoId {
+
 	}
 }

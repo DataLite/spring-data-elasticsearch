@@ -1,9 +1,10 @@
 package org.springframework.data.elasticsearch.core.completion;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-
 import java.util.List;
 import java.util.Map;
+
+import org.springframework.data.annotation.PersistenceConstructor;
+import org.springframework.lang.Nullable;
 
 /**
  * Based on the reference doc -
@@ -11,20 +12,21 @@ import java.util.Map;
  *
  * @author Mewes Kochheim
  * @author Robert Gruendler
+ * @author Peter-Josef Meisch
  */
-@JsonInclude(value = JsonInclude.Include.NON_NULL)
 public class Completion {
 
 	private String[] input;
-	private Map<String, List<String>> contexts;
-	private Integer weight;
-
-	private Completion() {
-		// required by mapper to instantiate object
-	}
+	@Nullable private Map<String, List<String>> contexts;
+	@Nullable private Integer weight;
 
 	public Completion(String[] input) {
 		this.input = input;
+	}
+
+	@PersistenceConstructor
+	public Completion(List<String> input) {
+		this.input = input.toArray(new String[0]);
 	}
 
 	public String[] getInput() {
@@ -35,6 +37,7 @@ public class Completion {
 		this.input = input;
 	}
 
+	@Nullable
 	public Integer getWeight() {
 		return weight;
 	}
@@ -43,6 +46,7 @@ public class Completion {
 		this.weight = weight;
 	}
 
+	@Nullable
 	public Map<String, List<String>> getContexts() {
 		return contexts;
 	}

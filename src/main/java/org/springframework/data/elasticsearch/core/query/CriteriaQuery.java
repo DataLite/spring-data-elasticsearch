@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,12 +24,11 @@ import org.springframework.util.Assert;
  * @author Rizwan Idrees
  * @author Mohsin Husen
  * @author Mark Paluch
+ * @author Peter-Josef Meisch
  */
 public class CriteriaQuery extends AbstractQuery {
 
 	private Criteria criteria;
-
-	private CriteriaQuery() {}
 
 	public CriteriaQuery(Criteria criteria) {
 		this(criteria, Pageable.unpaged());
@@ -45,18 +44,16 @@ public class CriteriaQuery extends AbstractQuery {
 		this.addSort(pageable.getSort());
 	}
 
-	public static final Query fromQuery(CriteriaQuery source) {
-		return fromQuery(source, new CriteriaQuery());
+	public static Query fromQuery(CriteriaQuery source) {
+		return fromQuery(source, new CriteriaQuery(source.criteria));
 	}
 
 	public static <T extends CriteriaQuery> T fromQuery(CriteriaQuery source, T destination) {
-		if (source == null || destination == null) {
-			return null;
-		}
 
-		if (source.getCriteria() != null) {
-			destination.addCriteria(source.getCriteria());
-		}
+		Assert.notNull(source, "source must not be null");
+		Assert.notNull(destination, "destination must not be null");
+
+		destination.addCriteria(source.getCriteria());
 
 		if (source.getSort() != null) {
 			destination.addSort(source.getSort());
@@ -67,12 +64,10 @@ public class CriteriaQuery extends AbstractQuery {
 
 	@SuppressWarnings("unchecked")
 	public final <T extends CriteriaQuery> T addCriteria(Criteria criteria) {
+
 		Assert.notNull(criteria, "Cannot add null criteria.");
-		if (this.criteria == null) {
-			this.criteria = criteria;
-		} else {
-			this.criteria.and(criteria);
-		}
+
+		this.criteria.and(criteria);
 		return (T) this;
 	}
 

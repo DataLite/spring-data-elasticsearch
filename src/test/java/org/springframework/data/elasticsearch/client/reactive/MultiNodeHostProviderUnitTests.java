@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 the original author or authors.
+ * Copyright 2018-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import static org.mockito.Mockito.*;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.data.elasticsearch.client.ElasticsearchHost;
 import org.springframework.data.elasticsearch.client.ElasticsearchHost.State;
 import org.springframework.data.elasticsearch.client.reactive.HostProvider.Verification;
@@ -32,7 +32,6 @@ import org.springframework.web.reactive.function.client.ClientResponse;
 
 /**
  * @author Christoph Strobl
- * @currentRead Golden Fool - Robin Hobb
  */
 public class MultiNodeHostProviderUnitTests {
 
@@ -43,7 +42,7 @@ public class MultiNodeHostProviderUnitTests {
 	MockDelegatingElasticsearchHostProvider<MultiNodeHostProvider> mock;
 	MultiNodeHostProvider provider;
 
-	@Before
+	@BeforeEach
 	public void setUp() {
 
 		mock = ReactiveMockClientTestsUtils.multi(HOST_1, HOST_2, HOST_3);

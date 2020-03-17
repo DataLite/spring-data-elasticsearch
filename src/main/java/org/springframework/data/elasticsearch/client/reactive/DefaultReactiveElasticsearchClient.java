@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 the original author or authors.
+ * Copyright 2018-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
+import reactor.netty.tcp.ProxyProvider;
 import reactor.netty.tcp.TcpClient;
 
 import java.io.IOException;
@@ -47,7 +48,6 @@ import javax.net.ssl.SSLContext;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.ActionRequest;
-import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.admin.indices.close.CloseIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
@@ -58,6 +58,8 @@ import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest;
 import org.elasticsearch.action.admin.indices.open.OpenIndexRequest;
 import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.admin.indices.refresh.RefreshResponse;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.get.GetRequest;
@@ -77,6 +79,7 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.Request;
+import org.elasticsearch.client.core.CountRequest;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.DeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
@@ -124,6 +127,7 @@ import org.springframework.web.reactive.function.client.WebClient.RequestBodySpe
  * @author Mark Paluch
  * @author Peter-Josef Meisch
  * @author Huw Ayling-Miller
+ * @author Henrique Amaral
  * @since 3.2
  * @see ClientConfiguration
  * @see ReactiveRestClients
@@ -195,10 +199,20 @@ public class DefaultReactiveElasticsearchClient implements ReactiveElasticsearch
 		}
 
 		if (!soTimeout.isNegative()) {
-
 			tcpClient = tcpClient.doOnConnected(connection -> connection //
 					.addHandlerLast(new ReadTimeoutHandler(soTimeout.toMillis(), TimeUnit.MILLISECONDS))
 					.addHandlerLast(new WriteTimeoutHandler(soTimeout.toMillis(), TimeUnit.MILLISECONDS)));
+		}
+
+		if (clientConfiguration.getProxy().isPresent()) {
+			String proxy = clientConfiguration.getProxy().get();
+			String[] hostPort = proxy.split(":");
+
+			if (hostPort.length != 2) {
+				throw new IllegalArgumentException("invalid proxy configuration " + proxy + ", should be \"host:port\"");
+			}
+			tcpClient = tcpClient.proxy(proxyOptions -> proxyOptions.type(ProxyProvider.Proxy.HTTP).host(hostPort[0])
+					.port(Integer.parseInt(hostPort[1])));
 		}
 
 		String scheme = "http";
@@ -222,7 +236,9 @@ public class DefaultReactiveElasticsearchClient implements ReactiveElasticsearch
 			provider = provider.withPathPrefix(clientConfiguration.getPathPrefix());
 		}
 
-		return provider.withDefaultHeaders(clientConfiguration.getDefaultHeaders());
+		provider = provider.withDefaultHeaders(clientConfiguration.getDefaultHeaders()) //
+				.withWebClientConfigurer(clientConfiguration.getWebClientConfigurer());
+		return provider;
 	}
 
 	/*
@@ -327,6 +343,18 @@ public class DefaultReactiveElasticsearchClient implements ReactiveElasticsearch
 
 	/*
 	 * (non-Javadoc)
+	 * @see org.springframework.data.elasticsearch.client.reactive.ReactiveElasticsearchClient#count(org.springframework.http.HttpHeaders, org.elasticsearch.action.search.SearchRequest)
+	 */
+	@Override
+	public Mono<Long> count(HttpHeaders headers, SearchRequest searchRequest) {
+		return sendRequest(searchRequest, RequestCreator.search(), SearchResponse.class, headers) //
+				.map(SearchResponse::getHits) //
+				.map(searchHits -> searchHits.getTotalHits().value) //
+				.next();
+	}
+
+	/*
+	 * (non-Javadoc)
 	 * @see org.springframework.data.elasticsearch.client.reactive.ReactiveElasticsearchClient#ping(org.springframework.http.HttpHeaders, org.elasticsearch.action.search.SearchRequest)
 	 */
 	@Override
@@ -423,9 +451,20 @@ public class DefaultReactiveElasticsearchClient implements ReactiveElasticsearch
 	 * (non-Javadoc)
 	 * @see org.springframework.data.elasticsearch.client.reactive.ReactiveElasticsearchClient#ping(org.springframework.http.HttpHeaders, org.elasticsearch.index.reindex.DeleteByQueryRequest)
 	 */
+	@Override
 	public Mono<BulkByScrollResponse> deleteBy(HttpHeaders headers, DeleteByQueryRequest deleteRequest) {
 
 		return sendRequest(deleteRequest, RequestCreator.deleteByQuery(), BulkByScrollResponse.class, headers) //
+				.publishNext();
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.elasticsearch.client.reactive.ReactiveElasticsearchClient#bulk(org.springframework.http.HttpHeaders, org.elasticsearch.action.bulk.BulkRequest)
+	 */
+	@Override
+	public Mono<BulkResponse> bulk(HttpHeaders headers, BulkRequest bulkRequest) {
+		return sendRequest(bulkRequest, RequestCreator.bulk(), BulkResponse.class, headers) //
 				.publishNext();
 	}
 
@@ -559,13 +598,12 @@ public class DefaultReactiveElasticsearchClient implements ReactiveElasticsearch
 
 	// -->
 
-	private <Req extends ActionRequest, Resp extends ActionResponse> Flux<Resp> sendRequest(Req request,
-			Function<Req, Request> converter, Class<Resp> responseType, HttpHeaders headers) {
+	private <Req extends ActionRequest, Resp> Flux<Resp> sendRequest(Req request, Function<Req, Request> converter,
+			Class<Resp> responseType, HttpHeaders headers) {
 		return sendRequest(converter.apply(request), responseType, headers);
 	}
 
-	private <AR extends ActionResponse> Flux<AR> sendRequest(Request request, Class<AR> responseType,
-			HttpHeaders headers) {
+	private <Resp> Flux<Resp> sendRequest(Request request, Class<Resp> responseType, HttpHeaders headers) {
 
 		String logId = ClientLogger.newLogId();
 
@@ -738,10 +776,15 @@ public class DefaultReactiveElasticsearchClient implements ReactiveElasticsearch
 
 		static Function<DeleteByQueryRequest, Request> deleteByQuery() {
 
+			return request -> RequestConverters.deleteByQuery(request);
+		}
+
+		static Function<BulkRequest, Request> bulk() {
+
 			return request -> {
 
 				try {
-					return RequestConverters.deleteByQuery(request);
+					return RequestConverters.bulk(request);
 				} catch (IOException e) {
 					throw new ElasticsearchException("Could not parse request", e);
 				}
@@ -782,6 +825,10 @@ public class DefaultReactiveElasticsearchClient implements ReactiveElasticsearch
 			return RequestConverters::flushIndex;
 		}
 
+		static Function<CountRequest, Request> count() {
+			return RequestConverters::count;
+		}
+
 	}
 
 	/**
@@ -818,8 +865,9 @@ public class DefaultReactiveElasticsearchClient implements ReactiveElasticsearch
 		private final Object lock = new Object();
 
 		private final List<String> pastIds = new ArrayList<>(1);
-		private String scrollId;
+		@Nullable private String scrollId;
 
+		@Nullable
 		String getScrollId() {
 			return scrollId;
 		}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 package org.springframework.data.elasticsearch.core.query;
 
+import org.springframework.lang.Nullable;
+
 /**
  * IndexQuery
  *
@@ -25,14 +27,13 @@ package org.springframework.data.elasticsearch.core.query;
 
 public class IndexQuery {
 
-	private String id;
-	private Object object;
-	private Long version;
-	private String indexName;
-	private String type;
-	private String source;
-	private String parentId;
+	@Nullable private String id;
+	@Nullable private Object object;
+	@Nullable private Long version;
+	@Nullable private String source;
+	@Nullable private String parentId;
 
+	@Nullable
 	public String getId() {
 		return id;
 	}
@@ -41,6 +42,7 @@ public class IndexQuery {
 		this.id = id;
 	}
 
+	@Nullable
 	public Object getObject() {
 		return object;
 	}
@@ -49,6 +51,7 @@ public class IndexQuery {
 		this.object = object;
 	}
 
+	@Nullable
 	public Long getVersion() {
 		return version;
 	}
@@ -57,22 +60,7 @@ public class IndexQuery {
 		this.version = version;
 	}
 
-	public String getIndexName() {
-		return indexName;
-	}
-
-	public void setIndexName(String indexName) {
-		this.indexName = indexName;
-	}
-
-	public String getType() {
-		return type;
-	}
-
-	public void setType(String type) {
-		this.type = type;
-	}
-
+	@Nullable
 	public String getSource() {
 		return source;
 	}
@@ -81,6 +69,12 @@ public class IndexQuery {
 		this.source = source;
 	}
 
+	/**
+	 * @deprecated from 4.0. Elasticsearch 7 does not support the parent id in an index request. parent/child relations
+	 *             must be modeled using the join datatype. Setting it here will have no effect.
+	 */
+	@Nullable
+	@Deprecated
 	public String getParentId() {
 		return parentId;
 	}

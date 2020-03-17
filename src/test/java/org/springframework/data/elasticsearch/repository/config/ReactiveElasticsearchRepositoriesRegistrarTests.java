@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 the original author or authors.
+ * Copyright 2019-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import org.assertj.core.api.Assertions;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -35,17 +33,16 @@ import org.springframework.data.elasticsearch.TestUtils;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.core.ReactiveElasticsearchTemplate;
+import org.springframework.data.elasticsearch.junit.jupiter.SpringIntegrationTest;
 import org.springframework.data.elasticsearch.repository.ReactiveElasticsearchRepository;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * @author Christoph Strobl
- * @currentRead Fool's Fate - Robin Hobb
  * @author Peter-Josef Meisch
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration
+@SpringIntegrationTest
+@ContextConfiguration(classes = { ReactiveElasticsearchRepositoriesRegistrarTests.Config.class })
 public class ReactiveElasticsearchRepositoriesRegistrarTests {
 
 	@Configuration
@@ -75,7 +72,7 @@ public class ReactiveElasticsearchRepositoriesRegistrarTests {
 	@NoArgsConstructor
 	@AllArgsConstructor
 	@Builder
-	@Document(indexName = "test-index-sample-reactive-repositories-registrar", type = "test-type", shards = 1,
+	@Document(indexName = "test-index-sample-reactive-repositories-registrar",
 			replicas = 0, refreshInterval = "-1")
 	static class SampleEntity {
 

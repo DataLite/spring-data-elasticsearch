@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 the original author or authors.
+ * Copyright 2018-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,27 +15,24 @@
  */
 package org.springframework.data.elasticsearch.repositories.custommethod;
 
-import org.junit.Before;
-import org.junit.runner.RunWith;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
-import org.springframework.data.elasticsearch.utils.IndexInitializer;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.elasticsearch.junit.jupiter.ElasticsearchRestTemplateConfiguration;
+import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * @author Don Wellington
  * @author Mark Paluch
  * @author Peter-Josef Meisch
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration("classpath:custom-method-repository-rest-test.xml")
+@ContextConfiguration(classes = { CustomMethodRepositoryRestTests.Config.class })
 public class CustomMethodRepositoryRestTests extends CustomMethodRepositoryBaseTests {
 
-	@Autowired private ElasticsearchRestTemplate elasticsearchTemplate;
-
-	@Before
-	public void before() {
-		IndexInitializer.init(elasticsearchTemplate, SampleEntity.class);
-	}
+	@Configuration
+	@Import({ ElasticsearchRestTemplateConfiguration.class })
+	@EnableElasticsearchRepositories(
+			basePackages = { "org.springframework.data.elasticsearch.repositories.custommethod" },
+			considerNestedRepositories = true)
+	static class Config {}
 }

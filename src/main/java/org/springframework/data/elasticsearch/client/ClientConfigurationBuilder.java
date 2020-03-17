@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 the original author or authors.
+ * Copyright 2018-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,10 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
 
 import org.springframework.data.elasticsearch.client.ClientConfiguration.ClientConfigurationBuilderWithRequiredEndpoint;
@@ -30,6 +32,7 @@ import org.springframework.data.elasticsearch.client.ClientConfiguration.Termina
 import org.springframework.http.HttpHeaders;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+import org.springframework.web.reactive.function.client.WebClient;
 
 /**
  * Default builder implementation for {@link ClientConfiguration}.
@@ -38,6 +41,7 @@ import org.springframework.util.Assert;
  * @author Mark Paluch
  * @author Peter-Josef Meisch
  * @author Huw Ayling-Miller
+ * @author Henrique Amaral
  * @since 3.2
  */
 class ClientConfigurationBuilder
@@ -47,11 +51,14 @@ class ClientConfigurationBuilder
 	private HttpHeaders headers = HttpHeaders.EMPTY;
 	private boolean useSsl;
 	private @Nullable SSLContext sslContext;
+	private @Nullable HostnameVerifier hostnameVerifier;
 	private Duration connectTimeout = Duration.ofSeconds(10);
 	private Duration soTimeout = Duration.ofSeconds(5);
-	private String username;
-	private String password;
-	private String pathPrefix;
+	private @Nullable String username;
+	private @Nullable String password;
+	private @Nullable String pathPrefix;
+	private @Nullable String proxy;
+	private @Nullable Function<WebClient, WebClient> webClientConfigurer;
 
 	/*
 	 * (non-Javadoc)
@@ -80,6 +87,13 @@ class ClientConfigurationBuilder
 		return this;
 	}
 
+	@Override
+	public MaybeSecureClientConfigurationBuilder withProxy(String proxy) {
+		Assert.hasLength(proxy, "proxy must not be null or empty");
+		this.proxy = proxy;
+		return this;
+	}
+
 	/*
 	 * (non-Javadoc)
 	 * @see org.springframework.data.elasticsearch.client.ClientConfiguration.MaybeSecureClientConfigurationBuilder#usingSsl()
@@ -102,6 +116,22 @@ class ClientConfigurationBuilder
 
 		this.useSsl = true;
 		this.sslContext = sslContext;
+		return this;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.elasticsearch.client.ClientConfiguration.MaybeSecureClientConfigurationBuilder#usingSsl(javax.net.ssl.SSLContext, javax.net.ssl.HostnameVerifier)
+	 */
+	@Override
+	public TerminalClientConfigurationBuilder usingSsl(SSLContext sslContext, HostnameVerifier hostnameVerifier) {
+
+		Assert.notNull(sslContext, "SSL Context must not be null");
+		Assert.notNull(hostnameVerifier, "Host Name Verifier must not be null");
+
+		this.useSsl = true;
+		this.sslContext = sslContext;
+		this.hostnameVerifier = hostnameVerifier;
 		return this;
 	}
 
@@ -160,9 +190,17 @@ class ClientConfigurationBuilder
 
 	@Override
 	public TerminalClientConfigurationBuilder withPathPrefix(String pathPrefix) {
-
 		this.pathPrefix = pathPrefix;
 
+		return this;
+	}
+
+	@Override
+	public TerminalClientConfigurationBuilder withWebClientConfigurer(Function<WebClient, WebClient> webClientConfigurer) {
+
+		Assert.notNull(webClientConfigurer, "webClientConfigurer must not be null");
+
+		this.webClientConfigurer = webClientConfigurer;
 		return this;
 	}
 
@@ -180,8 +218,8 @@ class ClientConfigurationBuilder
 			headers.setBasicAuth(username, password);
 		}
 
-		return new DefaultClientConfiguration(this.hosts, this.headers, this.useSsl, this.sslContext, this.soTimeout,
-				this.connectTimeout, this.pathPrefix);
+		return new DefaultClientConfiguration(hosts, headers, useSsl, sslContext, soTimeout, connectTimeout, pathPrefix,
+				hostnameVerifier, proxy, webClientConfigurer);
 	}
 
 	private static InetSocketAddress parse(String hostAndPort) {

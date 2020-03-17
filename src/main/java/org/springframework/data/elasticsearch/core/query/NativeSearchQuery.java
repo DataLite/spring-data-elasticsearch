@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import org.elasticsearch.search.aggregations.AbstractAggregationBuilder;
 import org.elasticsearch.search.collapse.CollapseBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.sort.SortBuilder;
-import org.springframework.data.elasticsearch.core.facet.FacetRequest;
+import org.springframework.lang.Nullable;
 
 /**
  * NativeSearchQuery
@@ -34,19 +34,19 @@ import org.springframework.data.elasticsearch.core.facet.FacetRequest;
  * @author Artur Konczak
  * @author Jean-Baptiste Nizet
  * @author Martin Choraine
+ * @author Peter-Josef Meisch
  */
-public class NativeSearchQuery extends AbstractQuery implements SearchQuery {
+public class NativeSearchQuery extends AbstractQuery {
 
 	private QueryBuilder query;
-	private QueryBuilder filter;
-	private List<SortBuilder> sorts;
+	@Nullable private QueryBuilder filter;
+	@Nullable private List<SortBuilder> sorts;
 	private final List<ScriptField> scriptFields = new ArrayList<>();
-	private CollapseBuilder collapseBuilder;
-	private List<FacetRequest> facets;
-	private List<AbstractAggregationBuilder> aggregations;
-	private HighlightBuilder highlightBuilder;
-	private HighlightBuilder.Field[] highlightFields;
-	private List<IndexBoost> indicesBoost;
+	@Nullable private CollapseBuilder collapseBuilder;
+	@Nullable private List<AbstractAggregationBuilder> aggregations;
+	@Nullable private HighlightBuilder highlightBuilder;
+	@Nullable private HighlightBuilder.Field[] highlightFields;
+	@Nullable private List<IndexBoost> indicesBoost;
 
 	public NativeSearchQuery(QueryBuilder query) {
 
@@ -89,25 +89,26 @@ public class NativeSearchQuery extends AbstractQuery implements SearchQuery {
 		return query;
 	}
 
+	@Nullable
 	public QueryBuilder getFilter() {
 		return filter;
 	}
 
+	@Nullable
 	public List<SortBuilder> getElasticsearchSorts() {
 		return sorts;
 	}
 
-	@Override
+	@Nullable
 	public HighlightBuilder getHighlightBuilder() {
 		return highlightBuilder;
 	}
 
-	@Override
+	@Nullable
 	public HighlightBuilder.Field[] getHighlightFields() {
 		return highlightFields;
 	}
 
-	@Override
 	public List<ScriptField> getScriptFields() {
 		return scriptFields;
 	}
@@ -120,7 +121,7 @@ public class NativeSearchQuery extends AbstractQuery implements SearchQuery {
 		scriptFields.addAll(Arrays.asList(scriptField));
 	}
 
-	@Override
+	@Nullable
 	public CollapseBuilder getCollapseBuilder() {
 		return collapseBuilder;
 	}
@@ -129,25 +130,7 @@ public class NativeSearchQuery extends AbstractQuery implements SearchQuery {
 		this.collapseBuilder = collapseBuilder;
 	}
 
-	public void addFacet(FacetRequest facetRequest) {
-
-		if (facets == null) {
-			facets = new ArrayList<>();
-		}
-
-		facets.add(facetRequest);
-	}
-
-	public void setFacets(List<FacetRequest> facets) {
-		this.facets = facets;
-	}
-
-	@Override
-	public List<FacetRequest> getFacets() {
-		return facets;
-	}
-
-	@Override
+	@Nullable
 	public List<AbstractAggregationBuilder> getAggregations() {
 		return aggregations;
 	}
@@ -165,7 +148,7 @@ public class NativeSearchQuery extends AbstractQuery implements SearchQuery {
 		this.aggregations = aggregations;
 	}
 
-	@Override
+	@Nullable
 	public List<IndexBoost> getIndicesBoost() {
 		return indicesBoost;
 	}

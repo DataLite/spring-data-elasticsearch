@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 the original author or authors.
+ * Copyright 2019-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,12 @@
 package org.springframework.data.elasticsearch.repository.query;
 
 import org.springframework.data.elasticsearch.core.mapping.ElasticsearchPersistentEntity;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.util.Assert;
 
 /**
  * @author Christoph Strobl
+ * @author Peter-Josef Meisch
  * @since 3.2
  */
 public class SimpleElasticsearchEntityMetadata<T> implements ElasticsearchEntityMetadata<T> {
@@ -38,12 +40,12 @@ public class SimpleElasticsearchEntityMetadata<T> implements ElasticsearchEntity
 
 	@Override
 	public String getIndexName() {
-		return entity.getIndexName();
+		return entity.getIndexCoordinates().getIndexName();
 	}
 
 	@Override
 	public String getIndexTypeName() {
-		return entity.getIndexType();
+		return IndexCoordinates.TYPE;
 	}
 
 	@Override

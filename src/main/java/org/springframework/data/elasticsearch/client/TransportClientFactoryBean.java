@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.FactoryBean;
+import org.springframework.beans.factory.FactoryBeanNotInitializedException;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.lang.Nullable;
 
 /**
  * TransportClientFactoryBean
@@ -48,11 +50,11 @@ public class TransportClientFactoryBean implements FactoryBean<TransportClient>,
 	private Boolean clientIgnoreClusterName = Boolean.FALSE;
 	private String clientPingTimeout = "5s";
 	private String clientNodesSamplerInterval = "5s";
-	private TransportClient client;
-	private Properties properties;
+	private @Nullable TransportClient client;
+	private @Nullable Properties properties;
 
 	@Override
-	public void destroy() throws Exception {
+	public void destroy() {
 		try {
 			logger.info("Closing elasticSearch  client");
 			if (client != null) {
@@ -64,7 +66,11 @@ public class TransportClientFactoryBean implements FactoryBean<TransportClient>,
 	}
 
 	@Override
-	public TransportClient getObject() throws Exception {
+	public TransportClient getObject() {
+
+		if (clientTransportSniff == null) {
+			throw new FactoryBeanNotInitializedException();
+		}
 		return client;
 	}
 
@@ -83,7 +89,7 @@ public class TransportClientFactoryBean implements FactoryBean<TransportClient>,
 		buildClient();
 	}
 
-	protected void buildClient() throws Exception {
+	protected void buildClient() {
 
 		client = new PreBuiltTransportClient(settings());
 
